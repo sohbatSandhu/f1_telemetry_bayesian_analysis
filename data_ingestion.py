@@ -74,20 +74,56 @@ def get_race_session(year_, circuit_name_):
 
     return session_key
 
-def download_race_data(session_key_):
-    """
-    Download lap, car telemetry, weather and driver data
+def fetch_driver_telemetry(session_key_, driver_number_):
 
-    Args:
-        session_key_ (int): Race session ID
-    """
+    telemetry = request_openf1_data(
+        "car_data",
+        session_key=session_key_,
+        driver_number=driver_number_
+    )
 
-    laps = request_openf1_data("laps", session_key=session_key_)
-    telemetry = request_openf1_data("car_data", session_key=session_key_)
-    weather = request_openf1_data("weather", session_key=session_key_)
-    drivers = request_openf1_data("drivers", session_key=session_key_)
+    df = pd.DataFrame(telemetry)
 
-    return laps, telemetry, weather, drivers
+    if df.empty:
+        return df
+
+    df["driver_number"] = driver_number_
+    df["date"] = pd.to_datetime(df["date"], format='ISO8601')
+
+    return df
+
+def download_and_process_telemetry(session_key, drivers, laps):
+
+    driver_numbers = drivers["driver_number"]
+
+    all_telemetry = []
+
+    for driver in driver_numbers:
+
+        print(f"Downloading telemetry for driver {driver}")
+
+        df = fetch_driver_telemetry(
+            session_key,
+            driver
+        )
+
+        if df.empty:
+            print(f"Driver DNS. No data.")
+            continue
+        
+        print("Assigning Laps to Telemetry...")
+        df = assign_laps_to_telemetry(df, laps        )
+
+        print("Building micro-sectors...")
+        df = build_microsectors(df)
+        all_telemetry.append(df)
+
+    telemetry = pd.concat(
+        all_telemetry,
+        ignore_index=True
+    )
+
+    return telemetry
 
 def build_microsectors(telemetry):
     """
@@ -103,7 +139,7 @@ def build_microsectors(telemetry):
     telemetry = telemetry.copy()
 
     # Ensure proper ordering
-    telemetry["date"] = pd.to_datetime(telemetry["date"])
+    telemetry["date"] = pd.to_datetime(telemetry["date"], format='ISO8601')
     telemetry = telemetry.sort_values(
         ["driver_number", "lap_number", "date"]
     )
@@ -152,6 +188,45 @@ def build_microsectors(telemetry):
 
     return telemetry
 
+def assign_laps_to_telemetry(telemetry, laps):
+
+    driver = telemetry["driver_number"].iloc[0]
+    driver_laps = laps[laps["driver_number"] == driver]
+    telemetry["lap_number"] = None
+
+    for _, lap in driver_laps.iterrows():
+
+        mask = (
+            (telemetry["date"] >= lap["date_start"]) &
+            (telemetry["date"] <= lap["date_end"])
+        )
+
+        telemetry.loc[mask, "lap_number"] = lap["lap_number"]
+
+    telemetry = telemetry.dropna(subset=["lap_number"])
+    telemetry["lap_number"] = telemetry["lap_number"].astype(int)
+
+    return telemetry
+
+def download_race_data(session_key_):
+    """
+    Download lap, car telemetry, weather and driver data
+
+    Args:
+        session_key_ (int): Race session ID
+    """
+
+    laps = request_openf1_data("laps", session_key=session_key_)
+    laps["date_start"] = pd.to_datetime(laps["date_start"], format='ISO8601')
+    laps["date_end"] = (
+        laps["date_start"] + pd.to_timedelta(laps["lap_duration"], unit="s")
+    )
+    drivers = request_openf1_data("drivers", session_key=session_key_)
+    telemetry = download_and_process_telemetry(session_key=session_key_, drivers=drivers, laps=laps)
+    weather = request_openf1_data("weather", session_key=session_key_)
+
+    return laps, telemetry, weather, drivers
+
 def merge_weather(telemetry, weather):
     """
     Merge Telemetry and Weather Data
@@ -164,8 +239,8 @@ def merge_weather(telemetry, weather):
         pd.DataFrame: Merged data
     """
 
-    weather["date"] = pd.to_datetime(weather["date"])
-    telemetry["date"] = pd.to_datetime(telemetry["date"])
+    weather["date"] = pd.to_datetime(weather["date"], format='ISO8601')
+    telemetry["date"] = pd.to_datetime(telemetry["date"], format='ISO8601')
 
     telemetry = pd.merge_asof(
         telemetry.sort_values("date"),
@@ -272,8 +347,6 @@ def build_race_dataset(year, circuit_name):
     session_key = get_race_session(year_=year, circuit_name_=circuit_name)
 
     laps, telemetry, weather, drivers = download_race_data(session_key_=session_key)
-    print(telemetry)
-    import sys; sys.exit()
 
     print("Building micro-sectors...")
     telemetry = build_microsectors(telemetry)
