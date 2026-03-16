@@ -1,0 +1,6 @@
+bookdown::pdf_document2:
+  includes:
+    in_header: preamble.tex
+  number_sections: true
+  toc: FALSE
+urlcolour: blue
