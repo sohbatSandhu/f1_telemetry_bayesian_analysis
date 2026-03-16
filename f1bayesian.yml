@@ -1,0 +1,14 @@
+# install with conda env create -f f1bayesian.yml 
+name: 'f1'
+channels:
+    - conda-forge
+    - pytorch
+    - anaconda
+    - plotly
+    - defaults
+dependencies:
+    - python
+    - pip
+    - numpy
+    - pandas
+    - requests
