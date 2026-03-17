@@ -1,5 +1,5 @@
 # api
-import requests
+import os
 from urllib.request import urlopen
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -422,6 +422,9 @@ def build_datasets(year, circuit_name):
 
     laps, stints, pits, weather, drivers = download_race_data(session_key_=session_key)
 
+    # ------------------------------------------------------------------------
+    # Build Laps dataset
+    # ------------------------------------------------------------------------
     print("Merging drivers...")
     laps_df = merge_drivers(laps_df, drivers)
 
@@ -456,9 +459,23 @@ if __name__ == "__main__":
     # Grand Prix Parameters
     gp_year = 2023
     gp_circuit_name = "Yas Marina Circuit"
+    gp_location = "AbuDhabi"
+    session_type = "Race"
 
-    df = build_datasets(
+    # ensure directory exists
+    os.makedirs("data/main", exist_ok=True)
+    
+    # build datasets
+    df_laps, df_telemetry = build_datasets(
         year=gp_year, circuit_name=gp_circuit_name
     )
 
-    df.to_csv("data/main/", index=False)
+    # store as csv files
+    df_laps.to_csv(
+        f"data/main/laps_all_{gp_year}_{gp_location}_{session_type[0]}.csv", 
+        index=False
+    )
+    df_telemetry.to_csv(
+        f"data/main/telemetry_micro_all_{gp_year}_{gp_location}_{session_type[0]}_m100.csv", 
+        index=False
+    )
