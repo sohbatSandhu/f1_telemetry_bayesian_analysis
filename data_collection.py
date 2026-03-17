@@ -1,10 +1,8 @@
-# api
-import os
-
 # data manipulation
 import pandas as pd
 import numpy as np
 
+# API endpoints
 from data_ingestion import request_openf1_data
 
 def get_race_session(year_, circuit_name_):
@@ -37,6 +35,15 @@ def get_race_session(year_, circuit_name_):
     return session_key
 
 def fetch_driver_telemetry(session_key_, driver_number_):
+    """Fetch driver telemetry for the session
+
+    Args:
+        session_key_ (int): Session ID
+        driver_number_ (int): Driver Number
+
+    Returns:
+        pd.DataFrame: Car telemetry data
+    """
 
     telemetry = request_openf1_data(
         "car_data",
@@ -309,25 +316,66 @@ def merge_drivers(df, drivers):
 
     return df.drop(columns=["driver_number"])
 
-def merge_laps(df, laps):
+def map_track_status(category, flag):
     """
-    Merge dataframe and lap data
+    Identify racing conditions based on the directive issued by the race
+    control
+
+    Args:
+        category (str): The category of the event (SessionStatus, CarEvent, Drs, Flag, SafetyCar, ...).
+        flag (str): Type of flag displayed (GREEN, YELLOW, DOUBLE YELLOW, CHEQUERED, ...).
+
+    Returns:
+        _type_: _description_
+    """
+    category = category.upper()
+    flag = flag.upper()
+
+    if ("SAFETYCAR" in category) or (("FLAG" in category) and (flag == "GREEN")):
+        return 0
+    return 1
+
+def expand_stints_to_laps(stints):
+
+    rows = []
+
+    for _, row in stints.iterrows():
+
+        for lap in range(row["lap_start"], row["lap_end"] + 1):
+
+            rows.append({
+                "driver_number": row["driver_number"],
+                "lap_number": lap,
+                "stint_number": row["stint_number"],
+                "compound": row["compound"],
+                
+                # tyre life increases each lap
+                "TyreLife": row["tyre_age_at_start"] + (lap - row["lap_start"])
+            })
+
+    return pd.DataFrame(rows)
+
+def merge_stints(df, stints):
+    """
+    Merge dataframe and stint data
 
     Args:
         df (pd.DataFrame): Main data
-        laps (pd.DataFrame): Lap
+        stints (pd.DataFrame): Stints data
 
     Returns:
         pd.DataFrame: Merged data
     """
 
-    laps = laps[[
-        "driver_number", "lap_number", "lap_time", "stint",
-        "tyre_age", "compound", "track_status"
+    stints = stints[[
+        "driver_number", "stint_number", "lap_start", "lap_end",
+        "compound", "tyre_age_at_start"
     ]]
-
+    # expand to stints
+    stints = expand_stints_to_laps(stints)
+    # merge stint and laps data
     df = df.merge(
-        laps, on=["driver_number", "lap_number"], how="left"
+        stints, on=["driver_number", "lap_number"], how="left"
     )
 
     return df
@@ -386,11 +434,11 @@ def build_datasets(year, circuit_name):
     laps, stints, pits, weather, drivers, rc = download_race_data(session_key_=session_key)
 
     # ------------------------------------------------------------------------
-    # Build Laps dataset
+    # Build Laps dataset - race conditions
     # ------------------------------------------------------------------------
-    print("Building Micro-sector telemetry dataset...")
-    print("Merging laps...")
-    laps_df = merge_laps(laps_df, laps)
+    print("Building Lap dataset...")
+    print("Merging stint data...")
+    laps_df = merge_stints(laps, stints)
     
     print("Merging drivers to lap data...")
     laps_df = merge_drivers(laps_df, drivers)
@@ -415,28 +463,3 @@ def build_datasets(year, circuit_name):
     telemetry_df = merge_drivers(telemetry_df, drivers)
 
     return laps_df, telemetry_df
-
-if __name__ == "__main__":
-    # Grand Prix Parameters
-    gp_year = 2023
-    gp_circuit_name = "Yas Marina Circuit"
-    gp_location = "AbuDhabi"
-    session_type = "Race"
-
-    # ensure directory exists
-    os.makedirs("data/main", exist_ok=True)
-    
-    # build datasets
-    df_laps, df_telemetry = build_datasets(
-        year=gp_year, circuit_name=gp_circuit_name
-    )
-
-    # store as csv files
-    df_laps.to_csv(
-        f"data/main/laps_all_{gp_year}_{gp_location}_{session_type[0]}.csv", 
-        index=False
-    )
-    df_telemetry.to_csv(
-        f"data/main/telemetry_micro_all_{gp_year}_{gp_location}_{session_type[0]}_m100.csv", 
-        index=False
-    )
