@@ -291,8 +291,9 @@ def download_race_data(session_key_):
     pits = request_openf1_data("pit", session_key=session_key_)
     drivers = request_openf1_data("drivers", session_key=session_key_)
     weather = request_openf1_data("weather", session_key=session_key_)
+    race_control = request_openf1_data("race_control", session_key=session_key_)
 
-    return laps, stints, pits, weather, drivers
+    return laps, stints, pits, weather, drivers, race_control
 
 def merge_weather(df, weather):
     """
@@ -420,22 +421,20 @@ def build_datasets(year, circuit_name):
 
     session_key = get_race_session(year_=year, circuit_name_=circuit_name)
 
-    laps, stints, pits, weather, drivers = download_race_data(session_key_=session_key)
+    laps, stints, pits, weather, drivers, rc = download_race_data(session_key_=session_key)
 
     # ------------------------------------------------------------------------
     # Build Laps dataset
     # ------------------------------------------------------------------------
-    print("Merging drivers...")
-    laps_df = merge_drivers(laps_df, drivers)
-
+    print("Building Micro-sector telemetry dataset...")
     print("Merging laps...")
     laps_df = merge_laps(laps_df, laps)
     
     print("Merging drivers to lap data...")
     laps_df = merge_drivers(laps_df, drivers)
-
-    print("Finalizing dataset...")
-    laps_df = finalize_dataset(laps_df)
+    
+    print("Merging drivers...")
+    laps_df = merge_drivers(laps_df, drivers)
     
     # ------------------------------------------------------------------------
     # Build Micro-sector telemetry dataset
