@@ -149,7 +149,7 @@ def build_microsectors(telemetry):
     """
     def update_first_element(group):
         """
-        Update first element of difference in time seconds.
+        Update missing first element of difference in time seconds.
         """
         # Sum all elements in 'TimeSeconds' except for the first one (index 0)
         remaining_sum = group['TimeSeconds'].iloc[1:].sum()
@@ -157,7 +157,7 @@ def build_microsectors(telemetry):
         # Calculate the new value for the first element
         # New Value = lap_duration - sum(remaining elements)
         group.iloc[0, group.columns.get_loc('TimeSeconds')] = group['LapTimeSeconds'].iloc[0] - remaining_sum
-        return group
+        return group['TimeSeconds']
     
     telemetry = telemetry.copy()
 
@@ -168,7 +168,6 @@ def build_microsectors(telemetry):
     )
 
     # Time difference between telemetry points
-    groups = telemetry.groupby(["driver_number", "lap_number"])
     telemetry["TimeSeconds"] = (
         telemetry.groupby(["driver_number", "lap_number"])["date"]
         .diff()
@@ -468,7 +467,7 @@ def validate_dataset(df1, df2):
         "throttle": "Throttle",
         "air_temperature": "AirTemp",
         "tyre_age": "TyreLife"
-    })
+    }, )
 
     columns2 = [
         "Driver",
