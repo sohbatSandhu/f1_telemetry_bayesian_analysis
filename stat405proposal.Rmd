@@ -1,0 +1,171 @@
+---
+title: "Bayesian Analysis of Formula 1 Car Telemetry and Lap Data"
+author: 'STAT 405: Bayesian Statistics'
+date: "`r Sys.Date()`"
+---
+
+```{r d1, echo=FALSE, warning=FALSE, message=FALSE}
+library(readr)
+library(knitr)
+library(tidyverse)
+
+# MAIN lap data
+main_lap_data <- read_csv("data/main/laps_all_2023_AbuDhabi_R.csv")
+
+# MAIN micro telemetry car data
+main_micro_telemetry_data <- read_csv(
+  "data/main/telemetry_micro_all_2023_AbuDhabi_R_m100.csv"
+)
+
+# BACKUP lap data
+bkp_lap_data <- read_csv("data/backup/laps_all_2023_AbuDhabi_R.csv")
+
+# BACKUP micro telemetry car data
+bkp_micro_telemetry_data <- read_csv(
+  "data/backup/telemetry_micro_all_2023_AbuDhabi_R_m100.csv"
+)
+```
+
+\subsection*{Basic requirements \- Team \& GitHub Repository Link}
+
+::: {.solbox data-latex=""}
+\begin{center}
+\begin{tabular}{|c|c|}
+  \hline
+  \textbf{Name} & \textbf{Student Number} \\
+  \hline
+  Sohbat Sandhu & 79661179 \\
+  \hline
+\end{tabular}
+\end{center}
+**GitHub Repository:** \textcolor{blue}{\url{https://github.com/sohbatSandhu/f1_telemetry_bayesian_analysis.git}}
+:::
+
+\section{Data}
+
+The main dataset is constructed using a custom `python` pipeline that collects the data from \href{https://openf1.org/}{\textbf{OpenF1 API}}. It is built to obtain the same variables as the backup dataset. The advantage of using the main data built from a custom pipeline is that it allows us to collect other variables that could be essential in modelling the more complex models. Moreover, the backup data contains performance data limited to 5 drivers (from 5 different teams/cars) whereas through the pipeline we were able to fetch data from all 20 drivers (2 from each team/car).
+
+The dataset is composed of two complementary components: a lap-level summary dataset and a micro-sector car telemetry dataset.
+
+- The lap-level dataset contains one observation per driver per lap that captures the broader race context, including strategy and environmental effects that influence performance. 
+- The telemetry dataset provides fine-grained information by dividing each lap into 100 equidistant micro-sectors. This structure allows for direct comparison of drivers at identical spatial positions on the track, enabling a more detailed analysis of driving behavior and performance.
+
+This integration of global race dynamics and localized performance is essential for building models that reflect both strategic and operational aspects of racing.
+
+\subsection{Data Information}
+
+**NOTE:** Due to space constraints, previews of both datasets (head of dataframes) are provided in the \hyperlink{apdx}{\underline{Appendix (Section 5)}}.
+
+::: {.solbox data-latex=""}
+\begin{longtable}{p{3cm} p{3cm} p{7cm}}
+
+\toprule
+\textbf{Variable} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\endfirsthead
+
+\toprule
+\textbf{Variable} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{3}{r}{\textit{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+\multicolumn{3}{c}{\textbf{Car Telemetry Data across 100 Micro-sectors}} \\
+\hline
+\addlinespace
+
+\texttt{Driver} & Categorical & Three-letter driver abbreviation (e.g., VER, HAM) \\
+\texttt{Team} & Categorical & The team or constructor name (e.g., Red Bulls Racing, Mercedes, Ferrari) \\
+\texttt{LapNumber} & Integer (1--58) & Sequential lap index during the race (Race for this session 58 laps long) \\
+\texttt{micro\_sector} & Integer (0--99) & Track divided into 100 equal-distance segments \\
+\texttt{Speed} & Continuous (km/h) & Instantaneous vehicle speed at given micro-sector \\
+\texttt{Throttle} & Continuous (0--100) & Throttle application percentage \\
+\texttt{TyreLife} & Integer & Number of laps completed on current tire set \\
+\texttt{AirTemp} & Continuous ($^\circ$C) & Ambient air temperature \\
+\texttt{LapTimeSeconds} & Continuous (s) & Total lap time \\
+\texttt{TimeSeconds} & Continuous (s) & Time elapsed from the start of the current micro-sector to its end \\
+
+\addlinespace
+\hline
+\multicolumn{3}{c}{\textbf{Lap-Level Driver Summary Data}} \\
+\hline
+\addlinespace
+
+\texttt{Driver} & Categorical & Three-letter driver abbreviation (e.g., VER, HAM) \\
+\texttt{Team} & Categorical & The team or constructor name (e.g., Red Bulls Racing, Mercedes, Ferrari) \\
+\texttt{LapNumber} & Integer (1--58) & Sequential lap index during the race (Race is 58 long) \\
+\texttt{LapTimeSeconds} & Continuous (s) & Total lap time \\
+\texttt{Stint} & Integer & Stint index between pit stops \\
+\texttt{Compound} & Categorical & Tire compound (SOFT, MEDIUM, HARD) \\
+\texttt{TrackStatus} & Binary & Race continuation status (1=Green, others=flags) \\
+\texttt{PitInTime} & Date-time or NA & Timestamp of pit entry \\
+\texttt{PitOutTime} & Date-time or NA & Timestamp of pit exit \\
+
+\hline
+\caption{Summary of Variables in the F1 2023 Abu Dhabi Telemetry Dataset} \\
+\hline
+\end{longtable}
+:::
+
+\section{Introduction}
+
+Formula One is considered to be one of the most technologically advanced sports in the world, serving as a prototype for advancements in engineering, materials science, and data analytics. Technologies developed in Formula One—such as hybrid power units, advanced aerodynamics, and real-time telemetry systems—often translate into broader applications in the automotive industry and beyond (e.g., energy efficiency systems and sensor technologies). Formula One is a fascinating real-world setting for statistical modeling and inference because teams heavily rely on high-frequency data collection and analysis to maximize performance. There is space for probabilistic frameworks that explicitly quantify uncertainty and variability because previous work in motorsport analytics has mostly concentrated on simulation-based methods or deterministic performance metrics based on coarse resolution. 
+
+\subsection*{Reasearch Questions}
+
+Consistency by micro-managing the time and inputs to the car from the driver is a must for a good performance in Formula One, Therefore, the uncertainties in lap times are influenced by multiple interacting factors, including driver skill, tire degradation, race conditions, and localized track dynamics like incidents. Traditional approaches typically rely on aggregate lap times or coarse sector splits, which does not allow use to observe the variation in high-resolution. Bayesian methods are will allow us to model this uncertainty and account for hierarchical structure across drivers, laps, and track segments.
+
+*We want to understand how does driver behavior influence micro-sector performance under varying external conditions (e.g., weather, incidents, on-track battles) and machinery constraints (e.g., tire degradation and car performance)?*
+
+\subsection*{Methodology}
+
+The primary response variable is micro-sector time, obtained by aggregating telemetry-derived time increments within each of the 100 equidistant segments per lap. 
+
+A baseline regression model is first used to capture the average effects of tire life and track conditions. We then attempt to extend this to a hierarchical Bayesian model, where micro-sector times depend on driver-specific effects, telemetry features (e.g., speed, throttle), and external and mechanical conditions.
+
+This framework allows us to separate the contribution of driver behavior from confounding factors such as race interruptions and tire wear. First, standard MCMC diagnostics (e.g., $\hat{R}$, effective sample size, and trace plots) are used to verify convergence and mixing, while posterior predictive checks assess how well the model reproduces observed micro-sector times. Finally, we compare MCMC with variational inference (for now, could be changes based on future knowledge) to evaluate approximation quality, using discrepancies in posterior summaries as an additional diagnostic for model reliability.
+
+\section{References}
+
+1. \hyperlink{1}{Source:} Open F1 - The open source API for Formula 1 data https://openf1.org/
+2. \hyperlink{2}{Source:} Collected Primary Datasets - https://github.com/sohbatSandhu/f1_telemetry_bayesian_analysis/tree/main/data/main 
+3. \hyperlink{3}{Source:} Backup Datasets (1) Kaggle: https://www.kaggle.com/datasets/gixarde31/f1-2023-abu-dhabi-gp-telemetry-and-lap-data (2) GitHub repository: https://github.com/sohbatSandhu/f1_telemetry_bayesian_analysis/tree/main/data/backup 
+
+\section{Appendix}
+
+\subsection{Main Data - \href{https://openf1.org/}{\textcolor{blue}{OpenF1}}}
+
+The following are the previews of the \hyperlink{apdx}{main and backup dataset}
+
+::: {.solbox data-latex=""}
+```{r d2.1, echo=FALSE, warning=FALSE, message=FALSE}
+## MAIN DATA
+glimpse(main_lap_data)
+```
+***Table 2:** Car Telemetry Data across 100 Micro-sectors driven by 20 drivers in 2023 F1 Abu Dhabi Grand Prix*
+```{r d2.2, echo=FALSE, warning=FALSE, message=FALSE}
+glimpse(main_micro_telemetry_data)
+```
+***Table 3:** Lap Summary Data of 20 drivers (2 per team) in 2023 F1 Abu Dhabi Grand Prix*
+:::
+
+\subsection{Backup Data - \href{https://www.kaggle.com/datasets/gixarde31/f1-2023-abu-dhabi-gp-telemetry-and-lap-data}{\textcolor{blue}{2023 F1 Abu Dhabi Grand Prix Kaggle Dataset}}}
+
+::: {.solbox data-latex=""}
+```{r d3.1, echo=FALSE, warning=FALSE, message=FALSE}
+## BACKUP DATA
+glimpse(bkp_lap_data)
+```
+***Table 4:** Car Telemetry Data across 100 Micro-sectors driven by only 5 drivers in 2023 F1 Abu Dhabi Grand Prix*
+```{r d3.2, echo=FALSE, warning=FALSE, message=FALSE}
+glimpse(bkp_micro_telemetry_data[, -c(1, 2, 3)])
+```
+***Table 5:** Lap Summary Data of 5 drivers (1 per team) in 2023 F1 Abu Dhabi Grand Prix*
+:::
