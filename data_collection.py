@@ -524,7 +524,7 @@ def build_datasets(year, circuit_name):
     
     # get laps start and end data
     telemetry = download_and_process_telemetry(
-        session_key=session_key, drivers=drivers["driver_number"], laps=laps
+        session_key=session_key, driver_numbers=drivers["driver_number"], laps=laps
     )
     
     print("=======> Merging weather data...")

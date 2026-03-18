@@ -17,11 +17,10 @@ if __name__ == "__main__":
     )
 
     # store as csv files
-    df_laps.to_csv(
-        f"data/main/laps_all_{gp_year}_{gp_location}_{session_type[0]}.csv", 
-        index=False
-    )
-    df_telemetry.to_csv(
-        f"data/main/telemetry_micro_all_{gp_year}_{gp_location}_{session_type[0]}_m100.csv", 
-        index=False
-    )
+    lap_main_path = f"data/main/laps_all_{gp_year}_{gp_location}_{session_type[0]}.csv"
+    df_laps.to_csv(lap_main_path, index=False)
+    print("Data Saved to", lap_main_path)
+    
+    micro_telemetry_path = f"data/main/telemetry_micro_all_{gp_year}_{gp_location}_{session_type[0]}_m100.csv", 
+    df_telemetry.to_csv(micro_telemetry_path, index=False)
+    print("Data Saved to", micro_telemetry_path)
