@@ -326,7 +326,7 @@ def map_track_status(category, flag):
         flag (str): Type of flag displayed (GREEN, YELLOW, DOUBLE YELLOW, CHEQUERED, ...).
 
     Returns:
-        _type_: _description_
+        int: racing track conditions
     """
     category = category.upper()
     flag = flag.upper()
@@ -334,6 +334,29 @@ def map_track_status(category, flag):
     if ("SAFETYCAR" in category) or (("FLAG" in category) and (flag == "GREEN")):
         return 0
     return 1
+
+def merge_race_conditions(df, race_controls):
+    """
+    Add variable for indicating valid racing conditions for analysis
+
+    Args:
+        df (pd.DataFrame): Merger data
+        race_controls (pd.DataFrame): Race control data
+
+    Returns:
+        pd.DataFrame: Merged data
+    """
+    df["TrackStatus"] = 0
+    for _, row in race_controls.iterrows():
+        cat, flag = str(row["category"]), str(row["flag"])
+        trackStatus = map_track_status(cat, flag)
+        if trackStatus == 0: continue
+        
+        # get indices to change values
+        idx = df[df["lap_number"] == row["lap_number"]].index
+        df.iloc[idx, df.columns.get_loc('TrackStatus')] = 1
+        
+    return df
 
 def expand_stints_to_laps(stints):
 
@@ -439,6 +462,9 @@ def build_datasets(year, circuit_name):
     print("Building Lap dataset...")
     print("Merging stint data...")
     laps_df = merge_stints(laps, stints)
+    
+    print("Race conditions merged ...")
+    laps_df = merge_race_conditions(laps_df, rc)
     
     print("Merging drivers to lap data...")
     laps_df = merge_drivers(laps_df, drivers)
