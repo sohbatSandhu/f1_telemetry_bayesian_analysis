@@ -403,6 +403,35 @@ def merge_stints(df, stints):
 
     return df
 
+def merge_pits(df, pits):
+    """Merge dataframe and pit summary data
+
+    Args:
+        df (pd.DataFrame): Main data
+        pits (pd.DataFrame): Pit summart data
+    """
+    pits = pits[["date", "driver_number", "lap_number", "lane_duration"]]
+    
+    df["PitInTime"], df["PitOutTime"] = None, None
+    in_col, out_col = df.columns.get_loc("PitInTime"), df.columns.get_loc("PitOutTime")
+    for _, row in pits.iterrows():
+        # date-time for entering pit lane
+        date_in = pd.to_datetime(row["date"])
+        driver_num, lap_num, date_out = (
+            row["driver_number"] , row["lap_number"], 
+            date_in + pd.to_timedelta(row["lane_duration"], unit="s")
+        )
+        
+        # pit entering lap and driver
+        in_row = df[(df["driver_number"] == driver_num) and (df["lap_number"] == lap_num)].index
+        # pit exiting lap and driver
+        out_row = df[(df["driver_number"] == driver_num) and (df["lap_number"] == (lap_num + 1))].index
+        
+        df.iloc[in_row, in_col] = date_in
+        df.iloc[out_row, out_col] = date_out
+    
+    return df
+
 def finalize_dataset(df):
     """
     Finalize data for analysis
@@ -466,8 +495,8 @@ def build_datasets(year, circuit_name):
     print("Race conditions merged ...")
     laps_df = merge_race_conditions(laps_df, rc)
     
-    print("Merging drivers to lap data...")
-    laps_df = merge_drivers(laps_df, drivers)
+    print("Merging pitting information to lap data...")
+    laps_df = merge_pits(laps_df, pits)
     
     print("Merging drivers...")
     laps_df = merge_drivers(laps_df, drivers)
