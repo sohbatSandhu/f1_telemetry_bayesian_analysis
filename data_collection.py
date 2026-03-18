@@ -359,9 +359,7 @@ def merge_race_conditions(df, race_controls):
     return df
 
 def expand_stints_to_laps(stints):
-
     rows = []
-
     for _, row in stints.iterrows():
 
         for lap in range(row["lap_start"], row["lap_end"] + 1):
@@ -423,51 +421,69 @@ def merge_pits(df, pits):
         )
         
         # pit entering lap and driver
-        in_row = df[(df["driver_number"] == driver_num) and (df["lap_number"] == lap_num)].index
+        in_row = df[(df["driver_number"] == driver_num) & (df["lap_number"] == lap_num)].index
         # pit exiting lap and driver
-        out_row = df[(df["driver_number"] == driver_num) and (df["lap_number"] == (lap_num + 1))].index
+        out_row = df[(df["driver_number"] == driver_num) & (df["lap_number"] == (lap_num + 1))].index
         
         df.iloc[in_row, in_col] = date_in
         df.iloc[out_row, out_col] = date_out
     
     return df
 
-def finalize_dataset(df):
+def validate_dataset(df1, df2):
     """
     Finalize data for analysis
 
     Args:
-        df (pd.DataFrame): Initial dataset
+        df1 (pd.DataFrame): Laps data
+        df2 (pd.DataFrame): Car telemetry data
 
     Returns:
         pd.DataFrame: Final dataset
     """
-    df = df.rename(columns={
+    # validate laps data column names
+    df1 = df1.rename(columns={
+        "stint_number": "Stint",
+        "compount": "Compound",
+        "lap_number": "LapNumber",
+        "lap_duration": "LapTimeSeconds",
+    })
+    
+    columns1 = [
+        "Driver",
+        "Team",
+        "LapTimeSeconds",
+        "LapNumber",
+        "Stint",
+        "TyreLife",
+        "Compound",
+        "TrackStatus"
+        "PitInTime",
+        "PitOutTime",
+    ]
+    
+    # validate car telemetry data column names
+    df2 = df2.rename(columns={
         "speed": "Speed",
         "throttle": "Throttle",
         "air_temperature": "AirTemp",
         "tyre_age": "TyreLife"
     })
 
-    columns = [
+    columns2 = [
         "Driver",
         "Team",
-        "driver_number",
-        "lap_number",
+        "LapNumber",
         "micro_sector",
         "Speed",
         "Throttle",
-        "AirTemp",
         "TyreLife",
-        "compound",
-        "lap_time",
-        "stint",
-        "track_status"
+        "AirTemp",
+        "LapTimeSeconds",
+        "TimeSeconds",
     ]
 
-    df = df[columns]
-
-    return df
+    return df1[columns1], df2[columns2]
 
 def build_datasets(year, circuit_name):
     """
@@ -516,5 +532,10 @@ def build_datasets(year, circuit_name):
     
     print("Merging drivers to micro-sector telemetry...")
     telemetry_df = merge_drivers(telemetry_df, drivers)
-
+    
+    # ------------------------------------------------------------------------
+    # Validate dataset naming conventions
+    # ------------------------------------------------------------------------
+    laps_df, telemetry_df = validate_dataset(laps_df, telemetry_df)
+    
     return laps_df, telemetry_df
