@@ -443,7 +443,7 @@ def validate_dataset(df1, df2):
     # validate laps data column names
     df1 = df1.rename(columns={
         "stint_number": "Stint",
-        "compount": "Compound",
+        "compound": "Compound",
         "lap_number": "LapNumber",
         "lap_duration": "LapTimeSeconds",
     })
@@ -456,7 +456,7 @@ def validate_dataset(df1, df2):
         "Stint",
         "TyreLife",
         "Compound",
-        "TrackStatus"
+        "TrackStatus",
         "PitInTime",
         "PitOutTime",
     ]
@@ -465,9 +465,9 @@ def validate_dataset(df1, df2):
     df2 = df2.rename(columns={
         "speed": "Speed",
         "throttle": "Throttle",
-        "air_temperature": "AirTemp",
+        "lap_number": "LapNumber",
         "tyre_age": "TyreLife"
-    }, )
+    })
 
     columns2 = [
         "Driver",
@@ -504,16 +504,17 @@ def build_datasets(year, circuit_name):
     # Build Laps dataset - race conditions
     # ------------------------------------------------------------------------
     print("Building Lap dataset...")
-    print("Merging stint data...")
+    
+    print("=======> Merging stint data...")
     laps_df = merge_stints(laps, stints)
     
-    print("Race conditions merged ...")
+    print("=======> Merging race conditions ...")
     laps_df = merge_race_conditions(laps_df, rc)
     
-    print("Merging pitting information to lap data...")
+    print("=======> Merging pitting information...")
     laps_df = merge_pits(laps_df, pits)
     
-    print("Merging drivers...")
+    print("=======> Merging driver data...")
     laps_df = merge_drivers(laps_df, drivers)
     
     # ------------------------------------------------------------------------
@@ -526,11 +527,18 @@ def build_datasets(year, circuit_name):
         session_key=session_key, drivers=drivers["driver_number"], laps=laps
     )
     
-    print("Merging weather...")
+    print("=======> Merging weather data...")
     telemetry_df = merge_weather(telemetry, weather)
+
     
-    print("Merging drivers to micro-sector telemetry...")
+    print("=======> Merging driver data...")
     telemetry_df = merge_drivers(telemetry_df, drivers)
+    
+    print("=======> Merging stint data...")
+    telemetry_df = telemetry_df.merge(
+        laps_df[["Driver", "lap_number", "TyreLife"]],
+        on=["Driver", "lap_number"], how="left"
+    )
     
     # ------------------------------------------------------------------------
     # Validate dataset naming conventions
