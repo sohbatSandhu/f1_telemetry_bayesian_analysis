@@ -78,7 +78,7 @@ def download_and_process_telemetry(session_key, driver_numbers, laps):
     # columns for telemetry
     columns = [
         "date", "driver_number", "lap_number", "micro_sector", 
-        "speed", "throttle", "TimeSeconds", "LapTimeSeconds"
+        "rpm", "speed", "throttle", "brake", "TimeSeconds", "LapTimeSeconds"
     ]
     
     # ensure lap has start time and end time 
@@ -287,6 +287,7 @@ def merge_weather(df, weather):
         direction="nearest"
     )
     
+    # remane air temperature column for consitiency
     df = df.rename(columns={
         "air_temperature": "AirTemp"
     })
@@ -308,6 +309,8 @@ def merge_drivers(df, drivers):
     # select required data
     drivers = drivers[["driver_number", "name_acronym", "team_name" ]]
     df = df.merge(drivers, on="driver_number", how="left")
+    
+    # rename for consistency accros datasets main and backup
     df = df.rename(columns={
         "name_acronym": "Driver",
         "team_name": "Team"
