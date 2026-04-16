@@ -1,9 +1,12 @@
 # data manipulation
-import pandas as pd
+import pandas as pd # type: ignore
 import numpy as np
 
 # API endpoints
-from data_ingestion import request_openf1_data
+from python.data_ingestion import request_openf1_data
+
+# logger
+from python.logger import logging
 
 def get_race_session(year_, circuit_name_):
     """
@@ -30,7 +33,7 @@ def get_race_session(year_, circuit_name_):
         raise ValueError("Race session not found")
 
     session_key = race_session.iloc[0]["session_key"]
-    print(f"Found session_key: {session_key}")
+    logging.info(f"Found session_key: {session_key}")
 
     return session_key
 
@@ -90,7 +93,7 @@ def download_and_process_telemetry(session_key, driver_numbers, laps):
     all_telemetry = []
 
     for driver in driver_numbers:
-        print(f"Downloading telemetry for driver {driver}")
+        logging.info(f"Downloading telemetry for driver {driver}")
 
         # fetch driver telemetry
         df = fetch_driver_telemetry(
@@ -99,13 +102,13 @@ def download_and_process_telemetry(session_key, driver_numbers, laps):
         )
 
         if df.empty:
-            print(f"Driver DNS. No data.")
+            logging.info(f"Driver DNS. No data.")
             continue
         
-        print("Assigning Laps to Telemetry...")
+        logging.info("Assigning Laps to Telemetry...")
         df = assign_laps_to_telemetry(df, laps)
 
-        print("Building micro-sectors and aggregate...")
+        logging.info("Building micro-sectors and aggregate...")
         df = build_microsectors(df)
         df = aggregate_microsectors(df)
         
@@ -506,38 +509,38 @@ def build_datasets(year, circuit_name):
     # ------------------------------------------------------------------------
     # Build Laps dataset - race conditions
     # ------------------------------------------------------------------------
-    print("Building Lap dataset...")
+    logging.info("Building Lap dataset...")
     
-    print("=======> Merging stint data...")
+    logging.info("=======> Merging stint data...")
     laps_df = merge_stints(laps, stints)
     
-    print("=======> Merging race conditions ...")
+    logging.info("=======> Merging race conditions ...")
     laps_df = merge_race_conditions(laps_df, rc)
     
-    print("=======> Merging pitting information...")
+    logging.info("=======> Merging pitting information...")
     laps_df = merge_pits(laps_df, pits)
     
-    print("=======> Merging driver data...")
+    logging.info("=======> Merging driver data...")
     laps_df = merge_drivers(laps_df, drivers)
     
     # ------------------------------------------------------------------------
     # Build Micro-sector telemetry dataset
     # ------------------------------------------------------------------------
-    print("Building Micro-sector telemetry dataset...")
+    logging.info("Building Micro-sector telemetry dataset...")
     
     # get laps start and end data
     telemetry = download_and_process_telemetry(
         session_key=session_key, driver_numbers=drivers["driver_number"], laps=laps
     )
     
-    print("=======> Merging weather data...")
+    logging.info("=======> Merging weather data...")
     telemetry_df = merge_weather(telemetry, weather)
 
     
-    print("=======> Merging driver data...")
+    logging.info("=======> Merging driver data...")
     telemetry_df = merge_drivers(telemetry_df, drivers)
     
-    print("=======> Merging stint data...")
+    logging.info("=======> Merging stint data...")
     telemetry_df = telemetry_df.merge(
         laps_df[["Driver", "lap_number", "TyreLife"]],
         on=["Driver", "lap_number"], how="left"

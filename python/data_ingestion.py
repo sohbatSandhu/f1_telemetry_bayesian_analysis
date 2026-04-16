@@ -5,7 +5,10 @@ from urllib.parse import urlencode
 import json
 
 # data manipulation
-import pandas as pd
+import pandas as pd # type: ignore
+
+# logger
+from python.logger import logging
 
 # OpenF1 API url
 BASE_URL = "https://api.openf1.org/v1"
@@ -25,20 +28,20 @@ def request_openf1_data(endpoint, **params) -> pd.DataFrame:
     url = f"{BASE_URL}/{endpoint}?{query}" # base url w/ endpoint and query
     data = None
     
-    print("Requesting:", url)
+    logging.info(f"Requesting: {url}")
     try:
         with urlopen(url) as response:
             # For successful responses (e.g., 200)
             response_status = response.getcode() # Or response.status
             data = json.loads(response.read().decode("utf-8"))
-            print(f"Success! Response code: {response_status}")
+            logging.info(f"Success! Response code: {response_status}")
             return pd.DataFrame(data)
     except HTTPError as e:
         # For HTTP errors (e.g., 404, 500)
         response_status = e.code
-        print(f"HTTP Error! Response code: {response_status}")
+        logging.info(f"HTTP Error! Response code: {response_status}")
     except URLError as e:
         # For other URL-related errors (e.g., connection issues)
-        print(f"URL Error! Reason: {e.reason}")
+        logging.info(f"URL Error! Reason: {e.reason}")
     
     return None
