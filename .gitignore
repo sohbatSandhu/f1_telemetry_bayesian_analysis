@@ -1,5 +1,19 @@
+# R user data, etc
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
+
+# VS Code Editor Data
 .vscode
+
+# python cache
+__pycache__/
+.mypy_cache
+
+# data file for Apple's macOS Finder
+.DS_store
+
+# jupyter notebook for visualizations
+notebook/
+.ipynb_checkpoints/
