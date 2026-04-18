@@ -8,7 +8,7 @@ import json
 import pandas as pd # type: ignore
 
 # logger
-from python.logger import logging
+from utils import logging
 
 # OpenF1 API url
 BASE_URL = "https://api.openf1.org/v1"

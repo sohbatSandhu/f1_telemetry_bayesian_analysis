@@ -3,10 +3,10 @@ import pandas as pd # type: ignore
 import numpy as np
 
 # API endpoints
-from python.data_ingestion import request_openf1_data
+from data_ingestion import request_openf1_data
 
 # logger
-from python.logger import logging
+from utils import logging
 
 def get_race_session(year_, circuit_name_):
     """
@@ -64,64 +64,6 @@ def fetch_driver_telemetry(session_key_, driver_number_):
 
     return df
 
-def download_and_process_telemetry(session_key, driver_numbers, laps):
-    """
-    Download car telemetery data in batches (per driver) and process into the 
-    required format
-
-    Args:
-        session_key (int): Grand Prix Session key
-        driver_numbers (list): List of drivers participating in the session
-        laps (pd.DataFrame): Lap data
-
-    Returns:
-        pd.DataFrame: Processed Car Telemetry data
-    """
-    
-    # columns for telemetry
-    columns = [
-        "date", "driver_number", "lap_number", "micro_sector", 
-        "rpm", "speed", "throttle", "brake", "TimeSeconds", "LapTimeSeconds"
-    ]
-    
-    # ensure lap has start time and end time 
-    laps["date_start"] = pd.to_datetime(laps["date_start"], format='ISO8601')
-    laps["date_end"] = (
-        laps["date_start"] + pd.to_timedelta(laps["lap_duration"], unit="s")
-    )
-
-    all_telemetry = []
-
-    for driver in driver_numbers:
-        logging.info(f"Downloading telemetry for driver {driver}")
-
-        # fetch driver telemetry
-        df = fetch_driver_telemetry(
-            session_key,
-            driver
-        )
-
-        if df.empty:
-            logging.info(f"Driver DNS. No data.")
-            continue
-        
-        logging.info("Assigning Laps to Telemetry...")
-        df = assign_laps_to_telemetry(df, laps)
-
-        logging.info("Building micro-sectors and aggregate...")
-        df = build_microsectors(df)
-        df = aggregate_microsectors(df)
-        
-        # append data to all telemetry dataframe
-        all_telemetry.append(df[columns])
-
-    telemetry = pd.concat(
-        all_telemetry,
-        ignore_index=True
-    )
-
-    return telemetry
-
 def aggregate_microsectors(df):
     #todo: improve aggregation estimates
     grouped = df.groupby(
@@ -135,6 +77,8 @@ def aggregate_microsectors(df):
         # "cum_distance": "max",
         "speed": "mean",
         "throttle": "mean",
+        "brake" : "mean",
+        "rpm" : "mean"
     })
 
     return grouped.reset_index().drop(columns=["index"])
@@ -214,6 +158,64 @@ def build_microsectors(telemetry):
     ).astype(int)
 
     telemetry["micro_sector"] = telemetry["micro_sector"].clip(0, 99)
+
+    return telemetry
+
+def download_and_process_telemetry(session_key, driver_numbers, laps):
+    """
+    Download car telemetery data in batches (per driver) and process into the 
+    required format
+
+    Args:
+        session_key (int): Grand Prix Session key
+        driver_numbers (list): List of drivers participating in the session
+        laps (pd.DataFrame): Lap data
+
+    Returns:
+        pd.DataFrame: Processed Car Telemetry data
+    """
+    
+    # columns for telemetry
+    columns = [
+        "date", "driver_number", "lap_number", "micro_sector", 
+        "rpm", "speed", "throttle", "brake", "TimeSeconds", "LapTimeSeconds"
+    ]
+    
+    # ensure lap has start time and end time 
+    laps["date_start"] = pd.to_datetime(laps["date_start"], format='ISO8601')
+    laps["date_end"] = (
+        laps["date_start"] + pd.to_timedelta(laps["lap_duration"], unit="s")
+    )
+
+    all_telemetry = []
+
+    for driver in driver_numbers:
+        logging.info(f"Downloading telemetry for driver {driver}")
+
+        # fetch driver telemetry
+        df = fetch_driver_telemetry(
+            session_key,
+            driver
+        )
+
+        if df.empty:
+            logging.info(f"Driver DNS. No data.")
+            continue
+        
+        logging.info("Assigning Laps to Telemetry...")
+        df = assign_laps_to_telemetry(df, laps)
+
+        logging.info("Building micro-sectors and aggregate...")
+        df = build_microsectors(df)
+        df = aggregate_microsectors(df)
+        
+        # append data to all telemetry dataframe
+        all_telemetry.append(df[columns])
+
+    telemetry = pd.concat(
+        all_telemetry,
+        ignore_index=True
+    )
 
     return telemetry
 
@@ -471,6 +473,7 @@ def validate_dataset(df1, df2):
     df2 = df2.rename(columns={
         "speed": "Speed",
         "throttle": "Throttle",
+        "brake": "Brake",
         "lap_number": "LapNumber",
         "tyre_age": "TyreLife"
     })
@@ -482,6 +485,8 @@ def validate_dataset(df1, df2):
         "micro_sector",
         "Speed",
         "Throttle",
+        "Brake",
+        "rpm",
         "TyreLife",
         "AirTemp",
         "LapTimeSeconds",
