@@ -1,3 +1,6 @@
+\let\olddate\date
+\renewcommand{\date}{\vspace{-20pt}\olddate}
+
 \usepackage{xcolor}
 \usepackage{amsthm}
 \usepackage{thmtools}
@@ -10,17 +13,17 @@
 \definecolor{SolColor}{rgb}{.97, .92, .996}
 
 \mdfdefinestyle{mystyle} {
-  skipabove= 1em,
-  skipbelow= 1em,
+  skipabove= 0.5em,
+  skipbelow= 0.5em,
   hidealllines=true,
   backgroundcolor={SolColor!100},
-  innertopmargin = 1em,
-  innerbottommargin = 1em,
-  innerleftmargin=.8em,
-  innerrightmargin=.8em,
-  splittopskip = 2em,
-  splitbottomskip = 1em,
-  needspace = 20pt}
+  innertopmargin = 0.5em,
+  innerbottommargin = 0.5em,
+  innerleftmargin=.6em,
+  innerrightmargin=.6em,
+  splittopskip = 1em,
+  splitbottomskip = 0.5em,
+  needspace = 10pt}
 
 \newenvironment{solbox}
   {\begin{mdframed}[style = mystyle]}

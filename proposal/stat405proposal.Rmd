@@ -1,7 +1,7 @@
 ---
 title: "Bayesian Analysis of Formula 1 Car Telemetry and Lap Data"
 author: 'STAT 405: Bayesian Statistics'
-date: "`r Sys.Date()`"
+date: "March 17, 2026"
 ---
 
 ```{r d1, echo=FALSE, warning=FALSE, message=FALSE}
@@ -87,6 +87,8 @@ This integration of global race dynamics and localized performance is essential 
 \texttt{micro\_sector} & Integer (0--99) & Track divided into 100 equal-distance segments \\
 \texttt{Speed} & Continuous (km/h) & Instantaneous vehicle speed at given micro-sector \\
 \texttt{Throttle} & Continuous (0--100) & Throttle application percentage \\
+\texttt{Brake} & Continuous (0--100) & Brake application percentage \\
+\texttt{RPM} & Continuous & Engine revolutions per minute \\
 \texttt{TyreLife} & Integer & Number of laps completed on current tire set \\
 \texttt{AirTemp} & Continuous ($^\circ$C) & Ambient air temperature \\
 \texttt{LapTimeSeconds} & Continuous (s) & Total lap time \\
