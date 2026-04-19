@@ -13,13 +13,13 @@ library(gridExtra)
 library(scales)
 
 # ensure figs directory for visualizations exists
-if (!dir.exists("data/figs")) {
-  dir.create("data/figs", recursive = TRUE)
+if (!dir.exists("figs")) {
+  dir.create("figs", recursive = TRUE)
 }
 
 # ensure output directory for summary stats exists
-if (!dir.exists("data/outputs")) {
-  dir.create("data/outputs", recursive = TRUE)
+if (!dir.exists("outputs")) {
+  dir.create("outputs", recursive = TRUE)
 }
 
 # ======================================================================
@@ -35,15 +35,18 @@ lap_summary_table <- laps_df |>
   group_by(driver_id) |>
   reframe(
     n_laps = n(),
-    mean_lap_time = mean(LapTimeSeconds, na.rm = TRUE),
-    sd_lap_time = sd(LapTimeSeconds, na.rm = TRUE),
-    min_lap_time = min(LapTimeSeconds, na.rm = TRUE),
-    q25_75 = quantile(LapTimeSeconds, c(0.25, 0.75), na.rm = TRUE),
-    total_time = sum(LapTimeSeconds, na.rm = TRUE)
+    mean_lap_time = round(mean(LapTimeSeconds, na.rm = TRUE), 4),
+    sd_lap_time = round(sd(LapTimeSeconds, na.rm = TRUE), 4),
+    min_lap_time = round(min(LapTimeSeconds, na.rm = TRUE), 4),
+    q25_75 = paste0(
+      round(quantile(LapTimeSeconds, c(0.25, 0.75), na.rm = TRUE), 4),
+      collapse = ","
+    ),
+    total_time = round(sum(LapTimeSeconds, na.rm = TRUE), 2)
   ) |>
   arrange(driver_id)
 
-write_csv(lap_summary_table, "data/outputs/lap_summary_by_driver.csv")
+write_csv(lap_summary_table, "outputs/lap_summary_by_driver.csv")
 
 # ======================================================================
 # 3. Separate teams by performance tiers based on season car performance
