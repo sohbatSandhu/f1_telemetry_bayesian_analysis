@@ -37,3 +37,19 @@ fit <- mod$sample(
 
 # save MCMC fit object for later analysis
 fit$save_object("outputs/fits/naive_mcmc.rds")
+
+# fit model using MCMC with fewer iterations for quick diagnostics
+fit_check <- mod$sample(
+  data = prep$stan_naive_train,
+  chains = 2,
+  parallel_chains = 2,
+  iter_warmup = 200,
+  iter_sampling = 200,
+  adapt_delta = 0.95,
+  max_treedepth = 17,
+  init = 0.1,
+  refresh = 200
+)
+
+# save MCMC fit check object for quick diagnostics
+fit_check$save_object("outputs/fits/naive_mcmc_check.rds")
