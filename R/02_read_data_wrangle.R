@@ -13,10 +13,10 @@
 # =========================
 # LIBRARIES
 # =========================
-library(dplyr)
-library(tidyr)
-library(readr)
-library(zoo)
+suppressStartupMessages(library(dplyr))
+suppressStartupMessages(library(tidyr))
+suppressStartupMessages(library(readr))
+suppressStartupMessages(library(zoo))
 
 # ==============================================================================
 # 1. Load telemetry data and lap level data
@@ -190,8 +190,8 @@ if (!dir.exists("data/processed")) {
 processed_telemetry_df <- imputed_telemetry_df |>
   select(
     Driver, driver_id, Team, team_id, compound_id, LapNumber, micro_sector,
-    Speed, Throttle, Brake, rpm, TimeSeconds,
-    AirTemp, TrackTemp, TyreLife
+    Speed, Throttle, Brake, rpm, AirTemp, TrackTemp, TyreLife,
+    TimeSeconds, LapTimeSeconds, log_time, log_lap_time
   ) |>
   arrange(driver_id, team_id, LapNumber, micro_sector)
 
