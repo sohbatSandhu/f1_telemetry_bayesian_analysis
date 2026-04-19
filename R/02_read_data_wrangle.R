@@ -82,8 +82,11 @@ clean_telemetry_df <- telemetry_df |>
   ) |>
   left_join(driver_key, by = "Driver") |>
   left_join(team_key, by = "Team") |>
-  left_join(unique(processed_laps_df[c("Driver", "LapNumber", "compound_id")]),
-            by = c("Driver", "LapNumber")) |>
+  left_join(
+    unique(
+      processed_laps_df[c("Driver", "LapNumber", "compound_id", "TrackStatus")]
+    ), by = c("Driver", "LapNumber")
+  ) |>
   mutate(
     micro_sector = micro_sector + 1
   ) |>
@@ -127,6 +130,7 @@ imputed_telemetry_df <- init_telemetry_df |>
     TyreLife,
     AirTemp,
     TrackTemp,
+    TrackStatus,
     LapTimeSeconds,
     .direction = "downup"
   ) |>
@@ -190,7 +194,7 @@ if (!dir.exists("data/processed")) {
 processed_telemetry_df <- imputed_telemetry_df |>
   select(
     Driver, driver_id, Team, team_id, compound_id, LapNumber, micro_sector,
-    Speed, Throttle, Brake, rpm, AirTemp, TrackTemp, TyreLife,
+    Speed, Throttle, Brake, rpm, AirTemp, TrackTemp, TyreLife, TrackStatus,
     TimeSeconds, LapTimeSeconds, log_time, log_lap_time
   ) |>
   arrange(driver_id, team_id, LapNumber, micro_sector)
