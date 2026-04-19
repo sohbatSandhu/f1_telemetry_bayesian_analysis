@@ -281,7 +281,7 @@ def merge_weather(df, weather):
     """
 
     weather["date"] = pd.to_datetime(weather["date"], format='ISO8601')
-    weather = weather[["date", "air_temperature"]] # select columns
+    weather = weather[["date", "air_temperature", "track_temperature"]] # select columns
     
     df["date"] = pd.to_datetime(df["date"], format='ISO8601')
 
@@ -475,7 +475,8 @@ def validate_dataset(df1, df2):
         "throttle": "Throttle",
         "brake": "Brake",
         "lap_number": "LapNumber",
-        "tyre_age": "TyreLife"
+        "tyre_age": "TyreLife",
+        "track_temperature" : "TrackTemp"
     })
 
     columns2 = [
@@ -489,6 +490,7 @@ def validate_dataset(df1, df2):
         "rpm",
         "TyreLife",
         "AirTemp",
+        "TrackTemp",
         "LapTimeSeconds",
         "TimeSeconds",
     ]
