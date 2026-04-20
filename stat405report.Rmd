@@ -24,7 +24,7 @@ Formula One (F1) performance is shaped by a complex interaction between driver d
 
 \subsection{Reasearch Question}
 
-Using microsectors telemetry and lap summary data from the \textbf{2023 Abu Dhabi Grand Prix}, we aim to infer latent driver ability and rank drivers with uncertainy while controlling for confounders and separaing driver effects from (1) team/car effects and (2) systematic track-geometry differences across microsectors. A bayesian hierarchical model is appropriate for this task as each microsector time is a noisy measurement and is influenced by multiple hierarchical factors with uneven sample sizes (influenced by driver choices like choosing different tire compounds and using different strategies).
+Using microsectors telemetry and lap summary data from the \textbf{2023 Abu Dhabi Grand Prix} (see Sections 6.3), we aim to infer latent driver ability and rank drivers with uncertainy while controlling for confounders and separaing driver effects from (1) team/car effects and (2) systematic track-geometry differences across microsectors. A bayesian hierarchical model is appropriate for this task as each microsector time is a noisy measurement and is influenced by multiple hierarchical factors with uneven sample sizes (influenced by driver choices like choosing different tire compounds and using different strategies).
 
 \subsection{Literature Review}
 
@@ -78,13 +78,13 @@ knitr::include_graphics(
 \vspace{-20pt}
 \textit{Figure 1.1: Lap time distributions by tire compound and team (every 2 drivers are a single team); Figure1.2: Heatmap of micro-sector performance across drivers and sectors.}
 
-\textit{Figure 1.1} shows that lap times are faster with harder compounds, despite comparitively softer compounds generally yielding faster times. This suggest other factors like track temperature, tire degradation and stint length may be influencing performance. We also see a increase trend in lap times across teams, denoting that teams have different performance thresholds. \textit{Figure 1.2} reveals patterns in micro-sector performance, with consistent time increase corresponding to turns indicating the importance of reflecting track geometry. For example, sectors 26-31, 49-55, and 80-88 correspond to turns 5, 6-7, and 12-14 respectively (see \textit{Figure x.x}), and show variability across drivers (hard to distinguish).
+\textit{Figure 1.1} shows that lap times are faster with harder compounds, despite comparitively softer compounds generally yielding faster times. This suggest other factors like track temperature, tire degradation and stint length may be influencing performance. We also see a increase trend in lap times across teams, denoting that teams have different performance thresholds. \textit{Figure 1.2} reveals patterns in micro-sector performance, with consistent time increase corresponding to turns indicating the importance of reflecting track geometry. For example, sectors 26-31, 49-55, and 80-88 correspond to turns 5, 6-7, and 12-14 respectively (see \textit{Figure 6.4.1}), and show variability across drivers (hard to distinguish).
 
 \section{Methodology}
 
 \subsection{Modelling}
 
-We model micro-sector and lap time based on logarithm scale to ensure predictions remain positive on the original scale and to improve approximate normality. We build two models: a lap level baseline (naive) model and a full hierarchical model (micro-sector level) for driver ranking and performance decomposition. All variables are specified from \textit{Sections 3.1.1-3.1.3}.
+We model micro-sector and lap time based on logarithm scale to ensure predictions remain positive on the original scale and to improve approximate normality. We build two models: a lap level baseline (naive) model and a full hierarchical model (micro-sector level) for driver ranking and performance decomposition. All variables are specified from \textit{Sections 3.1.1-3.1.3} and implementation available in Section 6.2.
 
 \subsubsection{Naive Model (Lap-Level Inferencing)}
 
@@ -122,25 +122,41 @@ Hierarchical effects with $z_d, z_t, z_m \sim \mathcal{N}(0,1)$:
 
 Tyre degradation is accounted with compound effects ($\beta_c$), and the following track and tyre usage conditions:
 $$\theta_{i} = \beta_{c[i]} + \beta_{\text{tyre}}\,\text{TyreLife}_i + \beta_{\text{temp}}\,\text{TrackTemp}_i + \beta_{\text{inter}}\,(\text{TyreLife}_i \cdot \text{TrackTemp}_i)$$
-With regression priors as $\beta_{\text{tyre}}, \beta_{\text{temp}}, \beta_{\text{inter}}, \beta_X, \beta_{\text{status}} \sim \mathcal{N}(0,0.5)$ This hierarchical model decomposes performance into driver ability, team/car effects, and track geometry, while accounting for tyre–environment interactions and driver inputs, enabling a more granular and fair estimation of latent driver skill.
+With regression priors as $\beta_{\text{tyre}}, \beta_{\text{temp}}, \beta_{\text{inter}}, \beta_X \ \text{(Driver Inputs)}, \beta_{\text{status}} \sim \mathcal{N}(0,0.5)$ This hierarchical model decomposes performance into driver ability, team/car effects, and track geometry, while accounting for tyre–environment interactions and driver inputs, enabling a more granular and fair estimation of latent driver skill.
 
 \subsubsection{Prior Choice Motivations}
 
-All continuous covariates (e.g., TyreLife, TrackTemp, driver inputs) are standardized, allowing the use of moderately informative priors with consistent interpretation across parameters. The intercept is assigned a weakly informative prior, $\alpha_0 \sim \mathcal{N}(0,2)$, for baseline log-time variation without permitting extreme values. Scale parameters are given exponential priors, $\sigma, \ \sigma_{\text{driver}}, \ \sigma_{\text{team}}, \ \sigma_{\text{micro}} \sim \text{Exp}(1)$, to ensure positive values. Hierarchical effects using $z \sim \mathcal{N}(0,1), \alpha = \sigma z$, improves sampling stability in high-dimensional spaces. Due to standardization, regression coefficients for tyre effects, environmental variables, and driver inputs use $\beta \sim \mathcal{N}(0,0.5)$, to indicate moderate effect on log-time variable by `1SD`. Categorical tyre compound effects are centered, $\beta_c = \beta_c^{\text{raw}} - \overline{\beta^{\text{raw}}}, \ \beta_c^{\text{raw}} \sim \mathcal{N}(0,0.5)$ to ensure performance is relative to the global average across all compound.The `df` parameter for the Student-$t$ likelihood is assigned $\nu \sim \mathcal{U}(2,60)$ to allow robustness to outliers which can be due to minor errors. Overall, these priors are numerous and robust to leveraging information for decent inferences.
+All continuous covariates (e.g., TyreLife, TrackTemp, driver inputs) are standardized, allowing the use of moderately informative priors with consistent interpretation across parameters. The intercept is assigned a weakly informative prior, $\alpha_0 \sim \mathcal{N}(0,2)$, for baseline log-time variation without permitting extreme values. Scale parameters are given exponential priors, $\sigma, \ \sigma_{\text{driver}}, \ \sigma_{\text{team}}, \ \sigma_{\text{micro}} \sim \text{Exp}(1)$, to ensure positive values. Hierarchical effects using $z \sim \mathcal{N}(0,1), \alpha = \sigma z$, improves sampling stability in high-dimensional spaces. Due to standardization, regression coefficients for tyre effects, environmental variables, and driver inputs use $\beta \sim \mathcal{N}(0,0.5)$, to indicate moderate effect on log-time variable by `1SD`. Categorical tyre compound effects are centered, $\beta_c = \beta_c^{\text{raw}} - \overline{\beta^{\text{raw}}}, \ \beta_c^{\text{raw}} \sim \mathcal{N}(0,0.5)$ to ensure performance is relative to the global average across all compound.The `df` parameter for the Student-$t$ likelihood is assigned $\nu \sim \mathcal{U}(2,60)$ to allow robustness to outliers which can be due to minor errors, resulting in significant differents in mirosector times. Overall, these priors are numerous and robust to leveraging information for decent inferences.
 
 \section{Results \& Interpretations}
 
-Posterior inference is performed using (i) NUTS MCMC via Stan (cmdstanr) as the reference method and (ii) mean-field variational inference (VI) as a fast approximation. 
+Posterior inference is performed using (i) NUTS MCMC via Stan for both models. Because the main model is computationally expensive and telemetry is high-volume, we additionally fit VI for the main model only as a faster posterior approximation. We used approximately, 410 observations (lap-level) for the naive model and 4400 observations (micro-sector-level subset) for the main model.
 
-\subsection{Diagnostics}
+For both MCMC fits, diagnostic summaries for key driver-effect parameters and scale/separation parameters indicate acceptable convergence (i) $\hat{R}$ values are close to 1.0 and satisfy the practical threshold ($\hat{R} < 1.1$), (ii) both `ess_bulk` and `ess_tail` are sufficiently large relative to the retained sample size for stable posterior summaries of driver ability and separation parameters. (See variable specific summaries in Tables 6.4.1-6.4.2). Additionally for team/car contribution for varibles, the trace plots show good mixing and stationarity, with no divergent transitions or other warnings, indicating reliable sampling from the posterior distribution.
 
-\subsection{Variational Inference}
+```{r d4.1, echo=FALSE, out.width="49%", fig.show='hold', fig.align='center'}
+knitr::include_graphics(
+  c("figs/diagnostics/main_trace_separation.png",
+    "figs/diagnostics/main_rankhist_separation.png")
+)
+```
+\vspace{-15pt}
+\textit{Figure 4.1: Trace plots and rank histograms for separation parameters $(\sigma_{driver}, \sigma_{team})$ in the main hierarchical model, showing good mixing and no divergences.}
 
-\section{Discussion}
+For the main model, VI posterior means are close to MCMC in central tendency for driver effects. In practice, this means posterior means/ranks are broadly similar, while VI behaves as a computationally efficient approximation under constrained runtime. As expected, VI can be slightly tighter in uncertainty than MCMC, so MCMC remains the reference posterior in interpretation.
 
-\subsection{Limitations}
+```{r d4.2, echo=FALSE, out.width="45%", out.height="200px", fig.show='hold', fig.align='center'}
+knitr::include_graphics(
+  c("figs/diagnostics/main_driver_ability_mcmc_vs_vi.png",
+    "figs/diagnostics/main_team_effect_mcmc_vs_vi.png")
+)
+```
+\vspace{-15pt}
+\textit{Figure 4.2: Variational inference vs MCMC for driver ability and team effect parameters in the main hierarchical model.}
 
-\subsection{Conclusions}
+\section{Limitations \& Conclusions}
+
+The posterior distribution for the driver-team contribution fraction (driver variance (20%) share relative to driver & team variance) shows bimodal mass near the boundaries (peaks near low and high ends, see Figure 6.4.2). This suggests ambiguity in variance attribution between driver and team under the current model/data resolution. A notable substantive outcome is that the main model did not place VERSTAPPEN (Driver ID 1) as the top posterior driver, given the 2023 context, this indicates that the current hierarchical decomposition may be over-absorbing signal into team/track/interaction components or is sensitive to the reduced data slice used for feasible computation. Our telemetry data is huge, so we modeled only a subset, which may limit stability and representativeness. Complex interactions can blur driver vs team effects. We also ignore time-series dynamics. Finally, results are from one race (Abu Dhabi 2023), so season-wide generalization is limited.
 
 \newpage <!-- APPENDIX -->
 
@@ -424,7 +440,7 @@ generated quantities {
 
 \addlinespace
 \hline
-\multicolumn{3}{c}{\textbf{Lap-Level Driver Summary Data for 26 Clean Laps}} \\
+\multicolumn{3}{c}{\textbf{Lap-Level Driver Summary Data}} \\
 \hline
 \addlinespace
 
@@ -439,7 +455,7 @@ generated quantities {
 \texttt{PitOutTime} & Date-time or NA & Timestamp of pit exit \\
 
 \hline
-\caption{\textit{Table Summary of Variables in the Processed Telemetry for 26 Clean Laps}} \\
+\caption{\textit{Table Summary of Variables in the Telemetry for 26 Clean Laps}} \\
 \end{longtable}
 :::
 
@@ -451,14 +467,29 @@ The following are the previews of the two main datasets used in the analysis. Th
 ```{r d2.1, echo=FALSE, warning=FALSE, message=FALSE}
 glimpse(lap_df)
 ```
-***Table x.x:** Car Telemetry Data across 100 Micro-sectors driven by 20 drivers in 2023 F1 Abu Dhabi Grand Prix*
+***Table 6.3.1:** Car Telemetry Data across 100 Micro-sectors driven by 20 drivers in 2023 F1 Abu Dhabi Grand Prix*
 ```{r d2.2, echo=FALSE, warning=FALSE, message=FALSE}
 glimpse(tele_df)
 ```
-***Table x.x:** Lap Summary Data of 20 drivers (2 per team) in 2023 F1 Abu Dhabi Grand Prix*
+***Table 6.3.2:** Lap Summary Data of 20 drivers (2 per team) in 2023 F1 Abu Dhabi Grand Prix*
 :::
 
 \subsection{Figures}
+
+```{r d3.0.1, echo=FALSE, out.width="70%", fig.show='hold', fig.align='center'}
+knitr::include_graphics(
+  c("figs/yas_marina_image.png")
+)
+```
+*Figure 6.4.1: Yas Marina Circuit Layout with turns labeled*
+
+```{r d3.0.2, echo=FALSE, out.width="70%", fig.show='hold', fig.align='center'}
+knitr::include_graphics(
+  c("figs/diagnostics/driver_frac_density.png")
+)
+```
+*Figure 6.4.2: Posterior distribution of driver-team contribution fraction (driver variance share relative to driver & team variance) in the main hierarchical model, showing bimodal mass near the boundaries, rather than a unimodal distribution at centered around 0.2*
+
 
 :::{.solbox data-latex=""}
 ```{r d3.1, echo=FALSE, warning=FALSE, message=FALSE}
@@ -473,7 +504,7 @@ main_key_summary <- main_key_summary |>
 # display the summary table
 main_key_summary
 ```
-*Table x.x: Summary of key diagnostics for the MCMC main hierarchical model, including R-hat values, effective sample sizes, and posterior means for key parameters*
+*Table 6.4.1: Summary of key diagnostics for the MCMC main hierarchical model, including R-hat values, effective sample sizes, and posterior means for key parameters*
 
 ```{r d3.2, echo=FALSE, warning=FALSE, message=FALSE}
 # Include the figures generated in from 07_diagnostics.R
@@ -487,7 +518,7 @@ main_driver_ability_summary <- main_driver_ability_summary |>
 # display the summary table
 main_driver_ability_summary
 ```
-*Table x.x: Summary of driver ability diagnostics for the MCMC main hierarchical model, including R-hat values, effective sample sizes, and posterior means for key parameters.*
+*Table 6.4.2: Summary of driver ability diagnostics for the MCMC main hierarchical model, including R-hat values, effective sample sizes, and posterior means for key parameters.*
 
 ```{r d3.3, echo=FALSE, warning=FALSE, message=FALSE}
 # Include the figures generated in from 07_diagnostics.R
@@ -501,7 +532,7 @@ naive_key_summary <- naive_key_summary |>
 # display the summary table
 naive_key_summary
 ```
-*Table x.x: Summary of key diagnostics for the MCMC naive model, including R-hat values, effective sample sizes, and posterior means for key parameters.*
+*Table 6.4.3: Summary of key diagnostics for the MCMC naive model, including R-hat values, effective sample sizes, and posterior means for key parameters.*
 
 ```{r d3.4, echo=FALSE, warning=FALSE, message=FALSE}
 # Include the figures generated in from 07_diagnostics.R
@@ -515,7 +546,7 @@ naive_driver_ability_summary <- naive_driver_ability_summary |>
 # display the summary table
 naive_driver_ability_summary
 ```
-*Table x.x: Summary of driver ability diagnostics for the MCMC naive model, including R-hat values, effective sample sizes, and posterior means for key parameters*
+*Table 6.4.4: Summary of driver ability diagnostics for the MCMC naive model, including R-hat values, effective sample sizes, and posterior means for key parameters*
 :::
 
 \section{References}
