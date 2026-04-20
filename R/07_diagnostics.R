@@ -263,3 +263,41 @@ capture.output(loo_vi,    file = "outputs/diagnostics/loo_vi.txt")
 
 cmp <- loo::loo_compare(loo_vi, loo_main)
 write.csv(as.data.frame(cmp), "outputs/diagnostics/loo_compare_vi_vs_main.csv")
+
+# ==============================================================================
+# 5. Domain check: driver vs team variance fraction (80/20 hypothesis)
+# ==============================================================================
+draws_df <- posterior::as_draws_df(draws_main)
+
+if (!("driver_frac" %in% names(draws_df))) {
+  # compute from sigma_driver, sigma_team
+  draws_df <- draws_df |>
+    mutate(
+      driver_frac = (sigma_driver^2) / (sigma_driver^2 + sigma_team^2),
+      team_frac = 1 - driver_frac
+    )
+}
+
+qs <- quantile(draws_df$driver_frac, c(0.05, 0.5, 0.95))
+write_csv(
+  tibble(q = c("p05", "p50", "p95"), value = as.numeric(qs)),
+  "outputs/diagnostics/driver_frac_quantiles.csv"
+)
+
+# convert to mathematical expression for subtitle
+expr <- paste0("median=", round(qs[[2]], 3),
+               "  (90% CI: ", round(qs[[1]], 3), ", ", round(qs[[3]], 3), ")")
+p_frac <- ggplot(draws_df, aes(x = driver_frac)) +
+  geom_density(fill = "steelblue", alpha = 0.35) +
+  geom_vline(xintercept = 0.2, linetype = "dashed",
+             color = "red", linewidth = 0.7) +
+  theme_minimal(base_size = 11) +
+  labs(
+    title = "Driver vs team/car contribution (variance fraction)",
+    subtitle = expr,
+    x = "driver_frac",
+    y = "Density"
+  )
+
+ggsave("figs/diagnostics/driver_frac_density.png",
+       p_frac, width = 6.5, height = 3.8, dpi = 300)
