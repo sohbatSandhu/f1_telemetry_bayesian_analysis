@@ -23,7 +23,6 @@ parameters {
 
   real beta_tyre;
   real beta_temp;
-  real beta_inter;
 
   real beta_status;
 
@@ -48,7 +47,6 @@ model {
 
   beta_tyre  ~ normal(0, 0.5);
   beta_temp  ~ normal(0, 0.5);
-  beta_inter ~ normal(0, 0.5);
 
   beta_status ~ normal(0, 0.5);
 
