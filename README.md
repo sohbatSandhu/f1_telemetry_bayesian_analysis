@@ -1,12 +1,13 @@
 # Bayesian Analysis of F1 Telemetry and Lap Data
 ## UBC STAT 405 Project (Bayesian Statistics)
 
+The RMD and PDF files for the report are available in [`stat405report.Rmd`](stat405report.Rmd) and [`stat405report.pdf`](stat405report.pdf) respectively.
+
 ### Table of Contents:
 
 1. Project Overview
-2. Repository Structure
+2. Repository Structure and Workflow
 3. Setup and Installation
-4. Project Workflow
 
 ## Project Overview
 
@@ -44,14 +45,46 @@ $ conda env create -f f1bayesian_env.yml
 $ conda activate f1
 ```
 
-## Repository Structure
+## Repository Structure and Workflow
 
-This repository will contain the following:
+This repository will contain the following files and folders:
 
-- Scripts to collect data from OpenF1 API endpoint.
-- R Markdown file for generating report.
-- R scripts for data processing and visualization
-- Stan files for sophisticated statistical modeling using Bayesian inference
+The files part of the project workflow have numbering prefixes to indicate the order in which they should be executed. The files without numbering prefixes are for helpers, reference and outputs purposes.
+
+### Python Files
+
+The python files will be used to collect data.
+
+- `utils.py` will be used to store helper functions for logging and error handling.
+- `data_ingestion.py` will be used to request data from the OpenF1 API.
+- `fetch_data.py` will be used to build datasets from data retrieved from the OpenF1 API and build appropriate dataframes for analysis.
+- `01_data_collection.py` will be used as a control script to run the data collection and data fetching process.
+
+### R Files
+
+The R files will be used to perform data analysis and build the bayesian hierarchical model.
+
+- `02_read_wrangle_data.R` will be used to read and wrangle the data into appropriate format for analysis.
+- `03_prelim_analysis.R` will be used to perform exploratory data analysis and store outputs and visualizations in the `outputs/` and `figs/` folder.
+- `04_model_prep.R` will be used to prepare data for model building and inference and store the prepared model as single `.rds` file in the `outputs/` folder.
+- `05_naive_mcmc.R` will be used to run MCMC on the naive model and store the sampled values as single `.rds` file in the `outputs/fits/` folder.
+- `06a_main_mcmc.R` will be used to run MCMC on the complex hierarchical model and store the sampled values as single `.rds` file in the `outputs/fits/` folder.
+- `06b_main_vi.R` will be used to run Variational Inference on the complex hierarchical model and store the sampled values as single `.rds` file in the `outputs/fits/` folder.
+- `07_diagnostics.R` will be used to perform diagnostics on relevant variables of the sampled values and store outputs and visualizations in the `outputs/diagnostics/` and `figs/diagnostics/` folder.
+
+### Stan Files
+
+The stan files will be used to specify the naive and complex hierarchical model.
+- `05_naive_model.stan` will be used to specify the naive model.
+- `06_main_model.stan` will be used to specify the complex hierarchical model.
+
+### Outputs and Figures
+
+The `outputs/` folder will be used to store all outputs from the data analysis and model building process. The `figs/` folder will be used to store all visualizations from the data analysis and modelling process.
+
+### Data Folder
+
+The `data/main/` folder will be used to store the raw data retrieved from the OpenF1 API and `data/backup/` will be used to store the Kaggle dataset. The `data/processed/` folder will be used to store the processed data that is ready for analysis.
 
 ## Project Workflow
 
