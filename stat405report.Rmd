@@ -76,7 +76,7 @@ knitr::include_graphics(
 )
 ```
 \vspace{-20pt}
-\textit{Figure 1.1: Lap time distributions by tire compound and team (every 2 drivers are a single team); Figure1.2: Heatmap of micro-sector performance across drivers and sectors.}
+\textit{Figure 1.1: Lap time distributions by tire compound and team where every 2 consecutive drivers are a single team (See Figure 6.4.3 for all team groups); Figure1.2: Heatmap of micro-sector performance across drivers and sectors.}
 
 \textit{Figure 1.1} shows that lap times are faster with harder compounds, despite comparitively softer compounds generally yielding faster times. This suggest other factors like track temperature, tire degradation and stint length may be influencing performance. We also see a increase trend in lap times across teams, denoting that teams have different performance thresholds. \textit{Figure 1.2} reveals patterns in micro-sector performance, with consistent time increase corresponding to turns indicating the importance of reflecting track geometry. For example, sectors 26-31, 49-55, and 80-88 correspond to turns 5, 6-7, and 12-14 respectively (see \textit{Figure 6.4.1}), and show variability across drivers (hard to distinguish).
 
@@ -489,6 +489,13 @@ knitr::include_graphics(
 )
 ```
 *Figure 6.4.2: Posterior distribution of driver-team contribution fraction (driver variance share relative to driver & team variance) in the main hierarchical model, showing bimodal mass near the boundaries, rather than a unimodal distribution at centered around 0.2*
+
+```{r d3.0.3, echo=FALSE, out.width="70%", fig.show='hold', fig.align='center'}
+knitr::include_graphics(
+  c("figs/compound_comparison_by_team_group.png")
+)
+```
+*Figure 6.4.3: Compound Comparison by Team Groups*
 
 
 :::{.solbox data-latex=""}
