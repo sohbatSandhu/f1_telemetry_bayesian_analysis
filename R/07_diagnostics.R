@@ -140,6 +140,9 @@ p_main_drv <- ggplot(drv_main, aes(
     y = "Estimate (log-micro-time scale)"
   )
 
+# save driver ability summary table for main model
+write_csv(drv_main, "outputs/diagnostics/main_driver_ability_summary.csv")
+
 ggsave("figs/diagnostics/main_driver_ability_mcmc.png",
        p_main_drv, width = 7, height = 8, dpi = 200)
 
