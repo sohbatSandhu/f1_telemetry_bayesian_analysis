@@ -20,15 +20,15 @@ tele_df <- read_csv("data/processed/telemetry_data.csv")
 
 \section{Introduction}
 
-Formula One (F1) performance is shaped by a complex interaction between driver decision-making, car performance, tire degradation, and race conditions. Modern telemetry makes these interactions measurable at high resolution: instead of analyzing only lap time, we can study micro‑sector time, where a lap is segmented into 100 equal-distance regions. A central challenge is that observed micro‑sector times are not direct measurements of driver skill. They confound skill with team/car advantages, tire compound and wear, temperature, and race interruptions. The goal is therefore an bayesian inference problem: to separate these factors and quantify uncertainty in driver ability.
+Formula One (F1) performance is shaped by a complex interaction between driver decision-making, car performance, tire degradation, and race conditions. Modern telemetry makes these interactions measurable at high resolution: instead of analyzing only lap time, we can study micro-sector time, where a lap is segmented into 100 equal-distance regions. A central challenge is that observed micro-sector times are not direct measurements of driver skill. They confound skill with team/car advantages, tire compound and wear, temperature, and race interruptions.
 
 \subsection{Reasearch Question}
 
-**Using telemetry and lap data from the 2023 Abu Dhabi Grand Prix, we aim to infer latent driver ability and rank drivers**
+Using microsectors telemetry and lap summary data from the \textbf{2023 Abu Dhabi Grand Prix}, we aim to infer latent driver ability and rank drivers with uncertainy while controlling for confounders and separaing driver effects from (1) team/car effects and (2) systematic track-geometry differences across microsectors. A bayesian hierarchical model is appropriate for this task as each microsector time is a noisy measurement and is influenced by multiple hierarchical factors with uneven sample sizes (influenced by driver choices like choosing different tire compounds and using different strategies).
 
 \subsection{Literature Review}
 
-It is common to use telemetry‑based analytics for motorsport performance, but much of the public-facing work is descriptive or predictive without full uncertainty quantification. Our work differs by framing the task as Bayesian inference for latent ability, emphasizing posterior uncertainty and model checking. 
+[Van Kesteren and Bergkamp (2023)](https://doi.org/10.1515/jqas-2022-0021) developed a Bayesian multilevel rank-ordered logit model using \textit{race finishing positions over multiple races and seasons} to infer driver skill and constructor advantage, showing that constructor effects dominate variation in outcomes. [Bell et al. (2016)](https://doi.org/10.1515/jqas-2015-0050) apply a cross-classified multilevel model to historical race results, decomposing performance into driver and team components. More recently, [Cappello and Hoegh (2025)](https://doi.org/10.48550/arXiv.2512.00640) introduce a Bayesian state-space model to capture latent tire degradation and its impact on lap times, demonstrating the importance of dynamic latent processes in explaining performance variation. While these studies establish strong foundations, they primarily rely on coarse outcome variables such as finishing positions or lap times, or focus on single-driver dynamics. In contrast, this project differs by modelling micro-sector level telemetry, allowing inference on driver ability at a much finer spatial resolution.
 
 \section{Preliminary Analysis}
 
@@ -84,18 +84,53 @@ knitr::include_graphics(
 
 \subsection{Modelling}
 
-We model micro-sector time $y_i$ (seconds) through its logarithm ($\log(y_i)$) to ensure predictions remain positive on the original scale and to improve approximate normality. We build two models: a baseline (naive) model for interpretability and a full hierarchical model for driver ranking and performance decomposition.
+We model micro-sector and lap time based on logarithm scale to ensure predictions remain positive on the original scale and to improve approximate normality. We build two models: a lap level baseline (naive) model and a full hierarchical model (micro-sector level) for driver ranking and performance decomposition. All variables are specified from \textit{Sections 3.1.1-3.1.3}.
 
-\subsubsection{Naive Model}
+\subsubsection{Naive Model (Lap-Level Inferencing)}
 
-$$\log (y_i) \ |\ \mu_i \sim \mathcal{N}(\mu_i, \sigma); \ \ \sigma \sim \text{Exp}(1)$$
-$$ \mu_i = \alpha_0 + \alpha_{d[i]} + \beta_1 \text{TyreLife}_i + \beta_2 \text{TrackTemp}_i + \beta_3 \text{Compound}_i + \psi_i \text{TrackStatus}_i$$
+Let $y_i = \log(\text{LapTimeSeconds}_i)$ for each observation $i$, we model $y_i \mid \mu_i, \sigma \sim \mathcal{N}(\mu_i, \sigma^2)$ where the performance is based on:
+\[
+\mu_i = \alpha_0 
++ \alpha_{d[i]} 
++ \beta_{c[i]} 
++ \beta_{\text{tyre}}\,\text{TyreLife}_i 
++ \beta_{\text{temp}}\,\text{TrackTemp}_i 
++ \beta_{\text{status}}\,\text{TrackStatus}_i
+\]
 
-\subsubsection{Complex Model}
+Driver ability is included via a non-centered parameterization: $\alpha_d = \sigma_{\text{driver}} z_d, \ z_d \sim \mathcal{N}(0,1)$. Tyre compound effects are centered using $\beta_c$. For other priors we use $\beta_{\text{tyre}}, \beta_{\text{temp}}, \beta_{\text{status}} \sim \mathcal{N}(0,0.5)$. This model provides a baseline driver ranking adjusted for tyre degradation (based on usage, weather and compound) and acceptable racing conditions, without separating team/car contribution.
 
-\subsection{}
+\subsubsection{Main Hierarchical Model (Micro-sector Level Inferencing)}
+
+Let $y_i = \log(\text{TimeSeconds}_i)$ for each micro-sector observation $i$. We use a robust likelihood, $y_i \mid \mu_i, \sigma, \nu \sim t_\nu(\mu_i, \sigma)$ where the performance is based on:
+\[
+\mu_i = \alpha_0 
++ \alpha_{d[i]} 
++ \gamma_{t[i]} 
++ \delta_{m[i]} 
++ \theta_{i}
++ \beta_X^\top X_i 
++ \beta_{\text{status}}\,\text{TrackStatus}_i.
+\]
+
+Hierarchical effects with $z_d, z_t, z_m \sim \mathcal{N}(0,1)$:
+\[
+\alpha_d = \sigma_{\text{driver}} z_d \ \text{(Driver Effects)},
+\gamma_t = \sigma_{\text{team}} z_t \ \text{(Team Effects)},
+\delta_m = \sigma_{\text{micro}} z_m \ \text{(Micro-sector Effects)}
+\]
+
+Tyre degradation is accounted with compound effects ($\beta_c$), and the following track and tyre usage conditions:
+$$\theta_{i} = \beta_{c[i]} + \beta_{\text{tyre}}\,\text{TyreLife}_i + \beta_{\text{temp}}\,\text{TrackTemp}_i + \beta_{\text{inter}}\,(\text{TyreLife}_i \cdot \text{TrackTemp}_i)$$
+With regression priors as $\beta_{\text{tyre}}, \beta_{\text{temp}}, \beta_{\text{inter}}, \beta_X, \beta_{\text{status}} \sim \mathcal{N}(0,0.5)$ This hierarchical model decomposes performance into driver ability, team/car effects, and track geometry, while accounting for tyre–environment interactions and driver inputs, enabling a more granular and fair estimation of latent driver skill.
+
+\subsubsection{Prior Choice Motivations}
+
+All continuous covariates (e.g., TyreLife, TrackTemp, driver inputs) are standardized, allowing the use of moderately informative priors with consistent interpretation across parameters. The intercept is assigned a weakly informative prior, $\alpha_0 \sim \mathcal{N}(0,2)$, for baseline log-time variation without permitting extreme values. Scale parameters are given exponential priors, $\sigma, \ \sigma_{\text{driver}}, \ \sigma_{\text{team}}, \ \sigma_{\text{micro}} \sim \text{Exp}(1)$, to ensure positive values. Hierarchical effects using $z \sim \mathcal{N}(0,1), \alpha = \sigma z$, improves sampling stability in high-dimensional spaces. Due to standardization, regression coefficients for tyre effects, environmental variables, and driver inputs use $\beta \sim \mathcal{N}(0,0.5)$, to indicate moderate effect on log-time variable by `1SD`. Categorical tyre compound effects are centered, $\beta_c = \beta_c^{\text{raw}} - \overline{\beta^{\text{raw}}}, \ \beta_c^{\text{raw}} \sim \mathcal{N}(0,0.5)$ to ensure performance is relative to the global average across all compound.The `df` parameter for the Student-$t$ likelihood is assigned $\nu \sim \mathcal{U}(2,60)$ to allow robustness to outliers which can be due to minor errors. Overall, these priors are numerous and robust to leveraging information for decent inferences.
 
 \section{Results \& Interpretations}
+
+Posterior inference is performed using (i) NUTS MCMC via Stan (cmdstanr) as the reference method and (ii) mean-field variational inference (VI) as a fast approximation. 
 
 \subsection{Diagnostics}
 
@@ -116,6 +151,235 @@ $$ \mu_i = \alpha_0 + \alpha_{d[i]} + \beta_1 \text{TyreLife}_i + \beta_2 \text{
 Outputs and code available at \href{https://github.com/sohbatSandhu/f1_telemetry_bayesian_analysis.git}{\textcolor{blue}{GitHub Repository}}
 
 **NOTE:** To ensure no issues in running the code for reproducing the outputs and analysis follow the instructions to setup your environment and run instructions in the `README.md` file.
+
+\subsection{Stan Implementation}
+
+\subsubsection{Naive Model (lap-level inferencing)}
+
+```{stan model1, message=FALSE, warning=FALSE, eval=FALSE, output.var="base_model"}
+data {
+  int<lower=1> N;
+  int<lower=1> D;
+  int<lower=1> C;
+
+  array[N] int<lower=1,upper=D> driver;
+  array[N] int<lower=1,upper=C> compound;
+  array[N] int<lower=0,upper=1> TrackStatus;
+
+  vector[N] y; // log_lap_time
+
+  vector[N] TyreLife_z;
+  vector[N] TrackTemp_z;
+}
+
+parameters {
+  real alpha0;
+
+  real<lower=1e-6> sigma_driver;
+  vector[D] z_driver;
+
+  vector[C] beta_comp_raw;
+
+  real beta_tyre;
+  real beta_temp;
+
+  real beta_status;
+
+  real<lower=1e-6> sigma;
+}
+
+transformed parameters {
+  vector[D] alpha_driver = sigma_driver * z_driver;
+  vector[C] beta_comp = beta_comp_raw - mean(beta_comp_raw);
+}
+
+model {
+  alpha0 ~ normal(0, 2);
+
+  // Use exponential to avoid piling mass at ~0, and keep sigma > 0.
+  sigma ~ exponential(1);
+  sigma_driver ~ exponential(1);
+
+  z_driver ~ std_normal();
+
+  beta_comp_raw ~ normal(0, 0.5);
+
+  beta_tyre  ~ normal(0, 0.5);
+  beta_temp  ~ normal(0, 0.5);
+
+  beta_status ~ normal(0, 0.5);
+
+  for (n in 1:N) {
+    real mu = alpha0
+      + alpha_driver[driver[n]]
+      + beta_comp[compound[n]]
+      + beta_tyre * TyreLife_z[n]
+      + beta_temp * TrackTemp_z[n]
+      + beta_status * TrackStatus[n];
+
+    y[n] ~ normal(mu, sigma);
+  }
+}
+
+generated quantities {
+  vector[N] log_lik;
+  for (n in 1:N) {
+    real mu = alpha0
+      + alpha_driver[driver[n]]
+      + beta_comp[compound[n]]
+      + beta_tyre * TyreLife_z[n]
+      + beta_temp * TrackTemp_z[n]
+      + beta_status * TrackStatus[n];
+
+    log_lik[n] = normal_lpdf(y[n] | mu, sigma);
+  }
+}
+
+```
+
+\subsubsection{Hierarchical Model (micro-sector level inferencing)}
+
+```{stan model2, message=FALSE, warning=FALSE, eval=FALSE, output.var="main_model"}
+data {
+  int<lower=1> N;
+  int<lower=1> D;
+  int<lower=1> T;
+  int<lower=1> M;
+  int<lower=1> C;
+
+  array[N] int<lower=1,upper=D> driver;
+  array[N] int<lower=1,upper=T> team;
+  array[N] int<lower=1,upper=M> micro;
+  array[N] int<lower=1,upper=C> compound;
+
+  array[N] int<lower=0,upper=1> TrackStatus;
+
+  vector[N] y;
+
+  vector[N] TyreLife_z;
+  vector[N] TrackTemp_z;
+  vector[N] TyreLife_x_TrackTemp;
+
+  int<lower=1> K;
+  matrix[N, K] X;
+
+  int<lower=1> ppc_n;
+  array[ppc_n] int<lower=1,upper=N> ppc_idx;
+}
+
+parameters {
+  real alpha0;
+
+  real<lower=1e-6> sigma_driver;
+  vector[D] z_driver;
+
+  real<lower=1e-6> sigma_team;
+  vector[T] z_team;
+
+  real<lower=1e-6> sigma_micro;
+  vector[M] z_micro;
+
+  vector[C] beta_comp_raw;
+
+  real beta_tyre;
+  real beta_temp;
+  real beta_inter;
+
+  vector[K] beta_X;
+  real beta_status;
+
+  real<lower=1e-6> sigma;
+  real<lower=2, upper=60> nu;
+}
+
+transformed parameters {
+  vector[D] alpha_driver = sigma_driver * z_driver;
+  vector[T] gamma_team   = sigma_team * z_team;
+  vector[M] delta_micro  = sigma_micro * z_micro;
+
+  vector[C] beta_comp = beta_comp_raw - mean(beta_comp_raw);
+}
+
+model {
+  alpha0 ~ normal(0, 2);
+
+  // scale priors (more stable than half-normal at exactly 0)
+  sigma ~ exponential(1);
+  sigma_driver ~ exponential(1);
+  sigma_team ~ exponential(1);
+  sigma_micro ~ exponential(1);
+
+  z_driver ~ std_normal();
+  z_team ~ std_normal();
+  z_micro ~ std_normal();
+
+  beta_comp_raw ~ normal(0, 0.5);
+
+  beta_tyre  ~ normal(0, 0.5);
+  beta_temp  ~ normal(0, 0.5);
+  beta_inter ~ normal(0, 0.5);
+
+  beta_X ~ normal(0, 0.5);
+  beta_status ~ normal(0, 0.5);
+
+  nu ~ uniform(2, 60);
+
+  for (n in 1:N) {
+    real mu = alpha0
+      + alpha_driver[driver[n]]
+      + gamma_team[team[n]]
+      + delta_micro[micro[n]]
+      + beta_comp[compound[n]]
+      + beta_tyre * TyreLife_z[n]
+      + beta_temp * TrackTemp_z[n]
+      + beta_inter * TyreLife_x_TrackTemp[n]
+      + dot_product(beta_X, X[n])
+      + beta_status * TrackStatus[n];
+
+    y[n] ~ student_t(nu, mu, sigma);
+  }
+}
+
+generated quantities {
+  vector[N] log_lik;
+  vector[ppc_n] y_rep;
+
+  real driver_frac = square(sigma_driver) / (square(sigma_driver) + square(sigma_team));
+  real team_frac   = 1 - driver_frac;
+
+  for (n in 1:N) {
+    real mu = alpha0
+      + alpha_driver[driver[n]]
+      + gamma_team[team[n]]
+      + delta_micro[micro[n]]
+      + beta_comp[compound[n]]
+      + beta_tyre * TyreLife_z[n]
+      + beta_temp * TrackTemp_z[n]
+      + beta_inter * TyreLife_x_TrackTemp[n]
+      + dot_product(beta_X, X[n])
+      + beta_status * TrackStatus[n];
+
+    log_lik[n] = student_t_lpdf(y[n] | nu, mu, sigma);
+  }
+
+  for (j in 1:ppc_n) {
+    int n = ppc_idx[j];
+    real mu = alpha0
+      + alpha_driver[driver[n]]
+      + gamma_team[team[n]]
+      + delta_micro[micro[n]]
+      + beta_comp[compound[n]]
+      + beta_tyre * TyreLife_z[n]
+      + beta_temp * TrackTemp_z[n]
+      + beta_inter * TyreLife_x_TrackTemp[n]
+      + dot_product(beta_X, X[n])
+      + beta_status * TrackStatus[n];
+
+    y_rep[j] = student_t_rng(nu, mu, sigma);
+  }
+}
+
+```
 
 \subsection{Data Information}
 
@@ -194,8 +458,71 @@ glimpse(tele_df)
 ***Table x.x:** Lap Summary Data of 20 drivers (2 per team) in 2023 F1 Abu Dhabi Grand Prix*
 :::
 
+\subsection{Figures}
+
+:::{.solbox data-latex=""}
+```{r d3.1, echo=FALSE, warning=FALSE, message=FALSE}
+# Include the figures generated in from 07_diagnostics.R
+main_key_summary <- read_csv("outputs/diagnostics/main_key_summary.csv")
+
+# round values for better presentation
+main_key_summary <- main_key_summary |>
+  mutate(across(where(is.numeric), round, digits = 3)) |>
+  select(variable, mean, q5, q95, rhat, ess_bulk, ess_tail)
+
+# display the summary table
+main_key_summary
+```
+*Table x.x: Summary of key diagnostics for the MCMC main hierarchical model, including R-hat values, effective sample sizes, and posterior means for key parameters*
+
+```{r d3.2, echo=FALSE, warning=FALSE, message=FALSE}
+# Include the figures generated in from 07_diagnostics.R
+main_driver_ability_summary <- read_csv("outputs/diagnostics/main_driver_ability_summary.csv")
+
+# round values for better presentation
+main_driver_ability_summary <- main_driver_ability_summary |>
+  mutate(across(where(is.numeric), round, digits = 3)) |>
+  select(variable, mean, q5, q95, rhat, ess_bulk, ess_tail)
+
+# display the summary table
+main_driver_ability_summary
+```
+*Table x.x: Summary of driver ability diagnostics for the MCMC main hierarchical model, including R-hat values, effective sample sizes, and posterior means for key parameters.*
+
+```{r d3.3, echo=FALSE, warning=FALSE, message=FALSE}
+# Include the figures generated in from 07_diagnostics.R
+naive_key_summary <- read_csv("outputs/diagnostics/naive_key_summary.csv")
+
+# round values for better presentation
+naive_key_summary <- naive_key_summary |>
+  mutate(across(where(is.numeric), round, digits = 3)) |>
+  select(variable, mean, q5, q95, rhat, ess_bulk, ess_tail)
+
+# display the summary table
+naive_key_summary
+```
+*Table x.x: Summary of key diagnostics for the MCMC naive model, including R-hat values, effective sample sizes, and posterior means for key parameters.*
+
+```{r d3.4, echo=FALSE, warning=FALSE, message=FALSE}
+# Include the figures generated in from 07_diagnostics.R
+naive_driver_ability_summary <- read_csv("outputs/diagnostics/naive_driver_ability_summary.csv")
+
+# round values for better presentation
+naive_driver_ability_summary <- naive_driver_ability_summary |>
+  mutate(across(where(is.numeric), round, digits = 3)) |>
+  select(variable, mean, q5, q95, rhat, ess_bulk, ess_tail)
+
+# display the summary table
+naive_driver_ability_summary
+```
+*Table x.x: Summary of driver ability diagnostics for the MCMC naive model, including R-hat values, effective sample sizes, and posterior means for key parameters*
+:::
+
 \section{References}
 
 1. Source: Open F1 - The open source API for Formula 1 data \textcolor{blue}{\url{https://openf1.org/}}
 2. Source: Collected Primary Datasets - \textcolor{blue}{\url{https://github.com/sohbatSandhu/f1_telemetry_bayesian_analysis/tree/main/data/main}}
 3. Source: Backup Datasets (1) Kaggle: \textcolor{blue}{\url{https://www.kaggle.com/datasets/gixarde31/f1-2023-abu-dhabi-gp-telemetry-and-lap-data}} (2) GitHub repository: \textcolor{blue}{\url{https://github.com/sohbatSandhu/f1_telemetry_bayesian_analysis/tree/main/data/backup}}
+4. van Kesteren EJ, Bergkamp T. Bayesian analysis of Formula One race results: disentangling driver skill and constructor advantage. J Quant Anal Sports. 2023 Jul 25;19(4):273-293. doi: 10.1515/jqas-2022-0021. PMID: 38020583; PMCID: PMC10660124.
+5. Bell, Andrew & Smith, James & Sabel, Clive & Jones, Kelvyn. (2016). Formula for success: Multilevel modelling of Formula One Driver and Constructor performance, 1950-2014. Journal of Quantitative Analysis in Sports. 12. 99-112. 10.1515/jqas-2015-0050. 
+6. Cappello, C., & Hoegh, A. (2025). A state-space approach to modeling tire degradation in Formula 1 racing. arXiv:2512.00640. https://doi.org/10.48550/arXiv.2512.00640
