@@ -1,0 +1,201 @@
+---
+output: _output.yml
+---
+\begin{center}
+\huge \textbf{Bayesian Inference of F1 Driver Ability}
+
+\Large STAT 405: Bayesian Statistics - Sohbat Sandhu (79661179)
+
+\large 18 April 2026
+\end{center}
+
+```{r d1, echo=FALSE, warning=FALSE, message=FALSE}
+library(readr)
+library(knitr)
+library(tidyverse)
+
+lap_df <- read_csv("data/processed/lap_data.csv")
+tele_df <- read_csv("data/processed/telemetry_data.csv")
+```
+
+\section{Introduction}
+
+Formula One (F1) performance is shaped by a complex interaction between driver decision-making, car performance, tire degradation, and race conditions. Modern telemetry makes these interactions measurable at high resolution: instead of analyzing only lap time, we can study micro‑sector time, where a lap is segmented into 100 equal-distance regions. A central challenge is that observed micro‑sector times are not direct measurements of driver skill. They confound skill with team/car advantages, tire compound and wear, temperature, and race interruptions. The goal is therefore an bayesian inference problem: to separate these factors and quantify uncertainty in driver ability.
+
+\subsection{Reasearch Question}
+
+**Using telemetry and lap data from the 2023 Abu Dhabi Grand Prix, we aim to infer latent driver ability and rank drivers**
+
+\subsection{Literature Review}
+
+It is common to use telemetry‑based analytics for motorsport performance, but much of the public-facing work is descriptive or predictive without full uncertainty quantification. Our work differs by framing the task as Bayesian inference for latent ability, emphasizing posterior uncertainty and model checking. 
+
+\section{Preliminary Analysis}
+
+We start with a preliminary analysis of the lap time data for 26 clean laps across 20 drivers (2 per team).
+
+\begin{longtable}{l l c c c c l c c c c}
+\caption{\textit{Team-Driver Lap Time Stats for 26 Clean laps (in s)}} \\ 
+\vspace{-20pt} \\
+\hline
+\textbf{Team} & \textbf{D1} & \textbf{Mean} & \textbf{SD} & \textbf{Min.} & \textbf{q25, q75} & \textbf{D2} & \textbf{Mean} & \textbf{SD} & \textbf{Min.} & \textbf{q25, q75}\\
+\hline
+\endfirsthead
+
+\multicolumn{11}{c}%
+{{\bfseries \tablename\ \thetable{} -- continued from previous page}} \\
+\hline
+\textbf{Team} & \textbf{D1} & \textbf{Mean} & \textbf{SD} & \textbf{Min.} & \textbf{q25, q75} & \textbf{D2} & \textbf{Mean} & \textbf{SD} & \textbf{Min.} & \textbf{q25, q75}\\
+\hline
+\endhead
+
+\hline
+\multicolumn{11}{r}{{Continued on next page}} \\
+\endfoot
+
+\hline
+\endlastfoot
+RedBull & VER & 88.932 & 1.153 & 86.993 & 87.91-89.57 & PER & 89.163 & 1.279 & 87.758 & 87.984-89.7 \\
+Mercedes & HAM & 89.656 & 1.05 & 88.372 & 88.81-89.9 & RUS & 89.526 & 1.019 & 88.187 & 88.69-90.2 \\
+Ferrari & LEC & 89.331 & 0.937 & 88.221 & 88.55-90.0 & SAI & 90.522 & 0.766 & 89.635 & 89.85-91.09 \\
+McLaren & NOR & 89.467 & 0.942 & 88.164 & 88.60-89.87 & SAI & 89.731 & 1.172 & 88.149 & 88.74-90.59 \\
+AstonMartin & ALO & 89.742 & 1.081 & 88.491 & 88.62-90.6 & STR & 89.891 & 1.129 & 88.177 & 88.86-90.85 \\
+Alpine & GAS & 90.212 & 0.738 & 89.307 & 89.52-90.7 & OCO & 90.656 & 0.553 & 90.113 & 90.26-90.9 \\
+Williams & ALB & 90.083 & 1.442 & 87.845 & 88.75-90.7 & SAR & 90.328 & 1.338 & 88.64 & 88.95-91.4 \\
+AlphaTauri & TSU & 90.241 & 0.816 & 89.256 & 89.47-90.9 & RIC & 89.947 & 1.213 & 88.571 & 88.77-90.7 \\
+AlfaRomeo & BOT & 91.41 & 0.885 & 89.998 & 90.57-92.0 & ZHO & 90.524 & 1.030 & 88.951 & 89.7-91.2 \\
+Haas & MAG & 90.968 & 0.763 & 89.934 & 90.44-91.5 & SAI & 90.689 & 0.909 & 89.456 & 90.09-91.4
+\end{longtable}
+\vspace{-15pt}
+\textit{Table 1} observes lap-level performance by driver. We observe that while there are differences in mean lap times across drivers and teams, there is also considerable overlap in their distributions, highlighting the need for a more nuanced analysis to disentangle driver ability from other factors.
+
+```{r 1.1, echo=FALSE, out.width="49%", fig.show='hold', fig.align='center'}
+knitr::include_graphics(
+  c("figs/compound_comparison_by_team_group_row1.png",
+    "figs/micro_sector_performance_heatmap.png")
+)
+```
+\vspace{-20pt}
+\textit{Figure 1.1: Lap time distributions by tire compound and team (every 2 drivers are a single team); Figure1.2: Heatmap of micro-sector performance across drivers and sectors.}
+
+\textit{Figure 1.1} shows that lap times are faster with harder compounds, despite comparitively softer compounds generally yielding faster times. This suggest other factors like track temperature, tire degradation and stint length may be influencing performance. We also see a increase trend in lap times across teams, denoting that teams have different performance thresholds. \textit{Figure 1.2} reveals patterns in micro-sector performance, with consistent time increase corresponding to turns indicating the importance of reflecting track geometry. For example, sectors 26-31, 49-55, and 80-88 correspond to turns 5, 6-7, and 12-14 respectively (see \textit{Figure x.x}), and show variability across drivers (hard to distinguish).
+
+\section{Methodology}
+
+\subsection{Modelling}
+
+We model micro-sector time $y_i$ (seconds) through its logarithm ($\log(y_i)$) to ensure predictions remain positive on the original scale and to improve approximate normality. We build two models: a baseline (naive) model for interpretability and a full hierarchical model for driver ranking and performance decomposition.
+
+\subsubsection{Naive Model}
+
+$$\log (y_i) \ |\ \mu_i \sim \mathcal{N}(\mu_i, \sigma); \ \ \sigma \sim \text{Exp}(1)$$
+$$ \mu_i = \alpha_0 + \alpha_{d[i]} + \beta_1 \text{TyreLife}_i + \beta_2 \text{TrackTemp}_i + \beta_3 \text{Compound}_i + \psi_i \text{TrackStatus}_i$$
+
+\subsubsection{Complex Model}
+
+\subsection{}
+
+\section{Results \& Interpretations}
+
+\subsection{Diagnostics}
+
+\subsection{Variational Inference}
+
+\section{Discussion}
+
+\subsection{Limitations}
+
+\subsection{Conclusions}
+
+\newpage <!-- APPENDIX -->
+
+\section{Appendix}
+
+\subsection{GitHub}
+
+Outputs and code available at \href{https://github.com/sohbatSandhu/f1_telemetry_bayesian_analysis.git}{\textcolor{blue}{GitHub Repository}}
+
+**NOTE:** To ensure no issues in running the code for reproducing the outputs and analysis follow the instructions to setup your environment and run instructions in the `README.md` file.
+
+\subsection{Data Information}
+
+::: {.solbox data-latex=""}
+\begin{longtable}{p{3cm} p{3cm} p{7cm}}
+
+\toprule
+\textbf{Variable} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\endfirsthead
+
+\toprule
+\textbf{Variable} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{3}{r}{\textit{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+\multicolumn{3}{c}{\textbf{Car Telemetry Data across 100 Micro-sectors}} \\
+\hline
+\addlinespace
+
+\texttt{Driver} & Categorical & Three-letter driver abbreviation (e.g., VER, HAM) \\
+\texttt{Team} & Categorical & The team or constructor name (e.g., Red Bulls Racing, Mercedes, Ferrari) \\
+\texttt{LapNumber} & Integer (1--58) & Sequential lap index during the race (Race for this session 58 laps long) \\
+\texttt{micro\_sector} & Integer (0--99) & Track divided into 100 equal-distance segments \\
+\texttt{Speed} & Continuous (km/h) & Instantaneous vehicle speed at given micro-sector \\
+\texttt{Throttle} & Continuous (0--100) & Throttle application percentage \\
+\texttt{Brake} & Continuous (0--100) & Brake application percentage \\
+\texttt{RPM} & Continuous & Engine revolutions per minute \\
+\texttt{TyreLife} & Integer & Number of laps completed on current tire set \\
+\texttt{AirTemp} & Continuous ($^\circ$C) & Ambient air temperature \\
+\texttt{TrackTemp} & Continuous ($^\circ$C) & Track temperature \\
+\texttt{LapTimeSeconds} & Continuous (s) & Total lap time \\
+\texttt{TimeSeconds} & Continuous (s) & Time elapsed from the start of the current micro-sector to its end \\
+
+\addlinespace
+\hline
+\multicolumn{3}{c}{\textbf{Lap-Level Driver Summary Data for 26 Clean Laps}} \\
+\hline
+\addlinespace
+
+\texttt{Driver} & Categorical & Three-letter driver abbreviation (e.g., VER, HAM) \\
+\texttt{Team} & Categorical & The team or constructor name (e.g., Red Bulls Racing, Mercedes, Ferrari) \\
+\texttt{LapNumber} & Integer (1--58) & Sequential lap index during the race (Race is 58 long) \\
+\texttt{LapTimeSeconds} & Continuous (s) & Total lap time \\
+\texttt{Stint} & Integer & Stint index between pit stops \\
+\texttt{Compound} & Categorical & Tire compound (SOFT, MEDIUM, HARD) \\
+\texttt{TrackStatus} & Binary & Race continuation status (1=Green, others=flags) \\
+\texttt{PitInTime} & Date-time or NA & Timestamp of pit entry \\
+\texttt{PitOutTime} & Date-time or NA & Timestamp of pit exit \\
+
+\hline
+\caption{\textit{Table Summary of Variables in the Processed Telemetry for 26 Clean Laps}} \\
+\end{longtable}
+:::
+
+\subsubsection{Processed Datasets}
+
+The following are the previews of the two main datasets used in the analysis. The first dataset contains micro-sector telemetry data for 100 segments of each lap, while the second dataset summarizes lap-level information for 26 clean laps.
+
+::: {.solbox data-latex=""}
+```{r d2.1, echo=FALSE, warning=FALSE, message=FALSE}
+glimpse(lap_df)
+```
+***Table x.x:** Car Telemetry Data across 100 Micro-sectors driven by 20 drivers in 2023 F1 Abu Dhabi Grand Prix*
+```{r d2.2, echo=FALSE, warning=FALSE, message=FALSE}
+glimpse(tele_df)
+```
+***Table x.x:** Lap Summary Data of 20 drivers (2 per team) in 2023 F1 Abu Dhabi Grand Prix*
+:::
+
+\section{References}
+
+1. Source: Open F1 - The open source API for Formula 1 data \textcolor{blue}{\url{https://openf1.org/}}
+2. Source: Collected Primary Datasets - \textcolor{blue}{\url{https://github.com/sohbatSandhu/f1_telemetry_bayesian_analysis/tree/main/data/main}}
+3. Source: Backup Datasets (1) Kaggle: \textcolor{blue}{\url{https://www.kaggle.com/datasets/gixarde31/f1-2023-abu-dhabi-gp-telemetry-and-lap-data}} (2) GitHub repository: \textcolor{blue}{\url{https://github.com/sohbatSandhu/f1_telemetry_bayesian_analysis/tree/main/data/backup}}
